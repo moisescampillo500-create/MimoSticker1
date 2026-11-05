@@ -1,0 +1,1 @@
+package com.mymoises.mystickerapp
