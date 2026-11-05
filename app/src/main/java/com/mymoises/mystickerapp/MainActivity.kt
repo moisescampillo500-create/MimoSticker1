@@ -11,6 +11,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
@@ -27,11 +28,23 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateRotation
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -41,6 +54,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,6 +67,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -83,6 +98,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -100,9 +116,12 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -173,9 +192,9 @@ fun MyStickerApp() {
 
 
     var selectedScreen by remember { mutableStateOf("My Home") }
-
-    val isStickerEditorScreen = selectedScreen == "My Sticker" || selectedScreen == "EditSavedSticker"
-
+    var selectedTemplate by remember { mutableStateOf<StickerTemplate?>(null) }
+    var selectedUserTemplateToEdit by remember { mutableStateOf<UserStickerTemplate?>(null) }
+    val isStickerEditorScreen = selectedScreen == "My Sticker" || selectedScreen == "EditSavedSticker" || selectedScreen == "TemplateEditor" || selectedScreen == "EditUserTemplate"
     var menuExpanded by remember { mutableStateOf(false) }
 
 
@@ -480,7 +499,7 @@ fun MyStickerApp() {
 
                             NavigationBarItem(
 
-                                selected = selectedScreen == "Create",
+                                selected = selectedScreen == "Create" || selectedScreen == "Templates",
 
                                 onClick = { selectedScreen = "Create" },
 
@@ -541,6 +560,14 @@ fun MyStickerApp() {
                         if (isStickerEditorScreen) {
 
                             Modifier.background(Color(0xFF111113))
+
+                        } else if (selectedScreen == "Templates") {
+
+                            Modifier
+
+                                .padding(paddingValues)
+
+                                .padding(16.dp)
 
                         } else {
 
@@ -1372,9 +1399,115 @@ fun MyStickerApp() {
 
                                 selectedScreen = "My Sticker"
 
+                            },
+
+                            onTemplates = {
+
+                                selectedScreen = "Templates"
+
                             }
 
                         )
+
+                    }
+
+                    "Templates" -> {
+
+                        TemplatesScreen(
+
+                            onCreateNewTemplate = {
+
+                                selectedScreen = "My Sticker"
+
+                            },
+
+                            onUseUserTemplate = { userTemplate ->
+
+                                selectedUserTemplateToEdit = userTemplate
+
+                                selectedScreen = "EditUserTemplate"
+
+                            },
+
+                            onBack = {
+
+                                selectedScreen = "Create"
+
+                            }
+
+                        )
+
+                    }
+
+                    "EditUserTemplate" -> {
+
+                        StickerEditorScreen(
+
+                            initialUserTemplate = selectedUserTemplateToEdit,
+
+                            creatorName = displayName,
+
+                            onStickerSaved = { stickerRefresh++ },
+
+                            onBack = {
+
+                                selectedUserTemplateToEdit = null
+
+                                selectedScreen = "Templates"
+
+                            }
+
+                        )
+
+                    }
+
+                    "TemplateEditor" -> {
+
+                        val currentTemplate = selectedTemplate
+
+                        if (currentTemplate != null) {
+
+                            TemplateEditorScreen(
+
+                                template = currentTemplate,
+
+                                onStickerSaved = {
+
+                                    stickerRefresh++
+
+                                },
+
+                                onOpenInStickerEditor = { bitmap ->
+
+                                    val savedFile = saveTempCutoutSticker(context, bitmap)
+
+                                    if (savedFile != null) {
+
+                                        selectedStickerToEdit = savedFile
+
+                                        selectedScreen = "EditSavedSticker"
+
+                                    } else {
+
+                                        selectedScreen = "My Sticker"
+
+                                    }
+
+                                },
+
+                                onBack = {
+
+                                    selectedScreen = "Templates"
+
+                                }
+
+                            )
+
+                        } else {
+
+                            selectedScreen = "Templates"
+
+                        }
 
                     }
 
@@ -1387,6 +1520,8 @@ fun MyStickerApp() {
                             StickerEditorScreen(
 
                                 initialStickerFile = if (selectedScreen == "EditSavedSticker") selectedStickerToEdit else null,
+
+                                creatorName = displayName,
 
                                 onStickerSaved = { stickerRefresh++ },
 
@@ -2829,7 +2964,8 @@ private fun generateLocalStickerBitmap(
 @Composable
 private fun CreateStickerMenu(
     onRemoveBackground: () -> Unit,
-    onEditSticker: () -> Unit
+    onEditSticker: () -> Unit,
+    onTemplates: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -2852,6 +2988,13 @@ private fun CreateStickerMenu(
             title = "Edit My Sticker",
             subtitle = "Choose a photo, edit it, and save as PNG.",
             onClick = onEditSticker
+        )
+        Spacer(Modifier.height(10.dp))
+        CreateOptionCard(
+            icon = "🎨",
+            title = "Templates",
+            subtitle = "Choose from ready-made sticker designs and customize.",
+            onClick = onTemplates
         )
     }
 }
@@ -2918,7 +3061,46 @@ private fun CreateOptionCard(
 
 // =====================================
 
+private data class EditorToolSpec(
+    val name: String,
+    val icon: String,
+    val onClick: () -> Unit
+)
 
+private fun calculateVisibleBounds(bitmap: Bitmap): RectF {
+    val width = bitmap.width
+    val height = bitmap.height
+    if (width <= 0 || height <= 0 || bitmap.isRecycled) {
+        return RectF(0f, 0f, width.coerceAtLeast(1).toFloat(), height.coerceAtLeast(1).toFloat())
+    }
+
+    var minX = width
+    var minY = height
+    var maxX = -1
+    var maxY = -1
+
+    val pixels = IntArray(width * height)
+    bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+
+    for (y in 0 until height) {
+        val rowOffset = y * width
+        for (x in 0 until width) {
+            val alpha = (pixels[rowOffset + x] ushr 24) and 0xFF
+            if (alpha > 10) {
+                if (x < minX) minX = x
+                if (x > maxX) maxX = x
+                if (y < minY) minY = y
+                if (y > maxY) maxY = y
+            }
+        }
+    }
+
+    return if (maxX >= minX && maxY >= minY) {
+        RectF(minX.toFloat(), minY.toFloat(), (maxX + 1).toFloat(), (maxY + 1).toFloat())
+    } else {
+        RectF(0f, 0f, width.toFloat(), height.toFloat())
+    }
+}
 
 private class StickerEditorLayer(val name: String, var bitmap: Bitmap) {
 
@@ -2933,6 +3115,12 @@ private class StickerEditorLayer(val name: String, var bitmap: Bitmap) {
     var offsetY by mutableFloatStateOf(0f)
 
     var alpha by mutableFloatStateOf(1f)
+
+    var visibleBounds by mutableStateOf(calculateVisibleBounds(bitmap))
+
+    fun updateVisibleBounds() {
+        visibleBounds = calculateVisibleBounds(bitmap)
+    }
 
 }
 
@@ -3320,12 +3508,28 @@ private fun drawStrokeOnBitmap(
     brushSize: Float,
     isEraser: Boolean
 ) {
+    val canvasBaseWidth = 1024f
+    val canvasBaseHeight = 1024f
+
+    val centerCanvasX = canvasSize.width / 2f
+    val centerCanvasY = canvasSize.height / 2f
+
+    val layerTranslationX = layer.offsetX * (canvasSize.width / canvasBaseWidth)
+    val layerTranslationY = layer.offsetY * (canvasSize.height / canvasBaseHeight)
+
+    val fitScale = minOf(
+        canvasSize.width / bitmap.width.coerceAtLeast(1).toFloat(),
+        canvasSize.height / bitmap.height.coerceAtLeast(1).toFloat()
+    )
+
+    val effectiveScale = (fitScale * layer.scale).coerceAtLeast(0.01f)
+
     val canvas = Canvas(bitmap)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
         style = Paint.Style.STROKE
-        this.strokeWidth = brushSize * (bitmap.width.toFloat() / canvasSize.width.coerceAtLeast(1f)) / layer.scale.coerceAtLeast(0.1f)
+        this.strokeWidth = brushSize / effectiveScale
         if (isEraser) {
             xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
         } else {
@@ -3333,33 +3537,78 @@ private fun drawStrokeOnBitmap(
         }
     }
 
-    val centerCanvasX = canvasSize.width / 2f
-    val centerCanvasY = canvasSize.height / 2f
-
     fun canvasToBitmapCoords(p: Offset): Offset {
-        val dx = (p.x - centerCanvasX - layer.offsetX) / layer.scale.coerceAtLeast(0.1f)
-        val dy = (p.y - centerCanvasY - layer.offsetY) / layer.scale.coerceAtLeast(0.1f)
+        val dx = (p.x - centerCanvasX - layerTranslationX) / layer.scale.coerceAtLeast(0.01f)
+        val dy = (p.y - centerCanvasY - layerTranslationY) / layer.scale.coerceAtLeast(0.01f)
         val rad = Math.toRadians(-layer.rotation.toDouble())
         val rx = (dx * Math.cos(rad) - dy * Math.sin(rad)).toFloat()
         val ry = (dx * Math.sin(rad) + dy * Math.cos(rad)).toFloat()
-        return Offset(rx + bitmap.width / 2f, ry + bitmap.height / 2f)
+        val bx = (rx / fitScale) + (bitmap.width / 2f)
+        val by = (ry / fitScale) + (bitmap.height / 2f)
+        return Offset(bx, by)
     }
 
     val start = canvasToBitmapCoords(prevPos)
     val end = canvasToBitmapCoords(currentPos)
     canvas.drawLine(start.x, start.y, end.x, end.y, paint)
+    layer.updateVisibleBounds()
+}
+
+private fun findLayerAtTouch(
+    p: Offset,
+    layers: List<StickerEditorLayer>,
+    canvasSize: Size
+): Int {
+    val canvasBaseWidth = 1024f
+    val canvasBaseHeight = 1024f
+
+    val centerCanvasX = canvasSize.width / 2f
+    val centerCanvasY = canvasSize.height / 2f
+
+    for (i in layers.lastIndex downTo 0) {
+        val layer = layers[i]
+        if (!layer.visible) continue
+
+        val bitmap = layer.bitmap
+        if (bitmap.isRecycled) continue
+
+        val layerTranslationX = layer.offsetX * (canvasSize.width / canvasBaseWidth)
+        val layerTranslationY = layer.offsetY * (canvasSize.height / canvasBaseHeight)
+
+        val fitScale = minOf(
+            canvasSize.width / bitmap.width.coerceAtLeast(1).toFloat(),
+            canvasSize.height / bitmap.height.coerceAtLeast(1).toFloat()
+        )
+
+        val dx = (p.x - centerCanvasX - layerTranslationX) / layer.scale.coerceAtLeast(0.01f)
+        val dy = (p.y - centerCanvasY - layerTranslationY) / layer.scale.coerceAtLeast(0.01f)
+        val rad = Math.toRadians(-layer.rotation.toDouble())
+        val rx = (dx * Math.cos(rad) - dy * Math.sin(rad)).toFloat()
+        val ry = (dx * Math.sin(rad) + dy * Math.cos(rad)).toFloat()
+        val bx = (rx / fitScale) + (bitmap.width / 2f)
+        val by = (ry / fitScale) + (bitmap.height / 2f)
+
+        val ix = bx.toInt()
+        val iy = by.toInt()
+
+        if (ix in 0 until bitmap.width && iy in 0 until bitmap.height) {
+            val pixel = bitmap.getPixel(ix, iy)
+            val alpha = (pixel ushr 24) and 0xFF
+            if (alpha > 10) {
+                return i
+            }
+        }
+    }
+    return -1
 }
 
 @Composable
-
 private fun StickerEditorScreen(
-
     initialStickerFile: File? = null,
-
+    initialUserTemplate: UserStickerTemplate? = null,
+    creatorName: String = "My Creator",
     onStickerSaved: () -> Unit,
-
     onBack: () -> Unit
-
 ) {
 
     val context = LocalContext.current
@@ -3409,6 +3658,14 @@ private fun StickerEditorScreen(
     var selectedShape by remember { mutableStateOf("Rectangle") }
 
     var showSaveSizeDialog by remember { mutableStateOf(false) }
+
+    var showSaveTemplateDialog by remember { mutableStateOf(false) }
+
+    var templateNameInput by remember { mutableStateOf("My Template") }
+
+    var selectedCategoryInput by remember { mutableStateOf("Cute") }
+
+    var isPublishedInput by remember { mutableStateOf(true) }
 
     var pendingOutputBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
@@ -3514,6 +3771,62 @@ private fun StickerEditorScreen(
 
     }
 
+    LaunchedEffect(initialUserTemplate) {
+
+        if (initialUserTemplate != null) {
+
+            layers.clear()
+
+            val loadedBitmaps = mutableListOf<Bitmap>()
+
+            initialUserTemplate.layers.forEach { layerData ->
+
+                val fileName = layerData.bitmapFileName
+
+                if (fileName != null) {
+
+                    val bmp = UserStickerTemplatesManager.loadLayerBitmap(initialUserTemplate.dirPath, fileName)
+
+                    if (bmp != null) {
+
+                        val layer = StickerEditorLayer(layerData.name, bmp.copy(Bitmap.Config.ARGB_8888, true)).apply {
+
+                            visible = layerData.visible
+
+                            scale = layerData.scale
+
+                            rotation = layerData.rotation
+
+                            offsetX = layerData.offsetX
+
+                            offsetY = layerData.offsetY
+
+                            alpha = layerData.alpha
+
+                        }
+
+                        layers.add(layer)
+
+                        loadedBitmaps.add(bmp.copy(Bitmap.Config.ARGB_8888, true))
+
+                    }
+
+                }
+
+            }
+
+            if (loadedBitmaps.isNotEmpty()) {
+
+                originalLayers = loadedBitmaps
+
+                activeLayer = layers.lastIndex
+
+            }
+
+        }
+
+    }
+
 
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -3597,8 +3910,6 @@ private fun StickerEditorScreen(
 
     val editorTools = listOf(
 
-        "Move" to "✥",
-
         "Remove BG" to "✂️",
 
         "Outline" to "🎨",
@@ -3641,121 +3952,269 @@ private fun StickerEditorScreen(
 
     ) {
 
-// Top Bar
+// Top Bar Container
 
-        Row(
+        Column(
 
-            Modifier.fillMaxWidth().background(Color(0xFF1D1D20)).padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier
 
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth()
+
+                .background(Color(0xFF1D1D20), RoundedCornerShape(16.dp))
+
+                .border(1.dp, Color(0xFF383840), RoundedCornerShape(16.dp))
+
+                .padding(horizontal = 12.dp, vertical = 10.dp)
 
         ) {
 
-            TextButton(onClick = onBack) { Text("‹", color = Color.White, fontSize = 32.sp) }
+            // ROW 1: Navigation Header with Centered Title
 
-            Text("Edit My Sticker", color = Color.White, fontSize = 18.sp, modifier = Modifier.weight(1f))
+            Box(
 
-            TextButton(onClick = {
+                modifier = Modifier.fillMaxWidth(),
 
-                if (history.isNotEmpty()) {
+                contentAlignment = Alignment.Center
 
-                    redoHistory.add(layers.map { StickerEditorHistoryLayer(it.name, it.bitmap.copy(Bitmap.Config.ARGB_8888, true), it.visible, it.scale, it.rotation, it.offsetX, it.offsetY, it.alpha) })
+            ) {
 
-                    val previous = history.removeAt(history.lastIndex)
+                IconButton(
 
-                    layers.clear()
+                    onClick = onBack,
 
-                    previous.forEach { s -> layers.add(StickerEditorLayer(s.name, s.bitmap).also { it.visible=s.visible; it.scale=s.scale; it.rotation=s.rotation; it.offsetX=s.offsetX; it.offsetY=s.offsetY; it.alpha=s.alpha }) }
+                    modifier = Modifier.align(Alignment.CenterStart)
 
-                    activeLayer = layers.lastIndex; canvasVersion++
+                ) {
 
-                }
-
-            }) { Text("↶", color = Color.White, fontSize = 24.sp) }
-
-            TextButton(onClick = {
-
-                if (redoHistory.isNotEmpty()) {
-
-                    history.add(layers.map { StickerEditorHistoryLayer(it.name, it.bitmap.copy(Bitmap.Config.ARGB_8888, true), it.visible, it.scale, it.rotation, it.offsetX, it.offsetY, it.alpha) })
-
-                    val next = redoHistory.removeAt(redoHistory.lastIndex)
-
-                    layers.clear()
-
-                    next.forEach { s -> layers.add(StickerEditorLayer(s.name, s.bitmap).also { it.visible=s.visible; it.scale=s.scale; it.rotation=s.rotation; it.offsetX=s.offsetX; it.offsetY=s.offsetY; it.alpha=s.alpha }) }
-
-                    activeLayer = layers.lastIndex; canvasVersion++
+                    Text("‹", color = Color.White, fontSize = 28.sp)
 
                 }
 
-            }) { Text("↷", color = Color.LightGray, fontSize = 24.sp) }
 
-            Button(
 
-                onClick = {
+                Text(
 
-                    val visibleLayers = layers.filter { it.visible }
+                    text = "Edit My Sticker",
 
-                    if (visibleLayers.isEmpty()) {
+                    color = Color.White,
 
-                        notice = "Magdagdag muna ng larawan bago mag-save."
+                    fontSize = 18.sp,
 
-                    } else {
+                    fontWeight = FontWeight.Bold,
 
-                        val outputWidth = originalLayers.firstOrNull()?.width ?: visibleLayers.first().bitmap.width
+                    textAlign = TextAlign.Center
 
-                        val outputHeight = originalLayers.firstOrNull()?.height ?: visibleLayers.first().bitmap.height
+                )
 
-                        val output = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888)
+            }
 
-                        val outputCanvas = Canvas(output)
 
-                        visibleLayers.forEach { layer ->
 
-                            outputCanvas.save()
+            Spacer(Modifier.height(10.dp))
 
-                            outputCanvas.translate(outputWidth / 2f + layer.offsetX, outputHeight / 2f + layer.offsetY)
 
-                            outputCanvas.rotate(layer.rotation)
 
-                            outputCanvas.scale(layer.scale, layer.scale)
+            // ROW 2: Action Buttons Row (Undo, Redo, Template, Save)
 
-                            val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+            Row(
 
-                                alpha = (layer.alpha * 255).toInt().coerceIn(0, 255)
+                modifier = Modifier.fillMaxWidth(),
 
-                            }
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
 
-                            outputCanvas.drawBitmap(
+                verticalAlignment = Alignment.CenterVertically
 
-                                layer.bitmap,
+            ) {
 
-                                -layer.bitmap.width / 2f,
+                // 1. Undo
 
-                                -layer.bitmap.height / 2f,
+                Button(
 
-                                paint
+                    onClick = {
 
-                            )
+                        if (history.isNotEmpty()) {
 
-                            outputCanvas.restore()
+                            redoHistory.add(layers.map { StickerEditorHistoryLayer(it.name, it.bitmap.copy(Bitmap.Config.ARGB_8888, true), it.visible, it.scale, it.rotation, it.offsetX, it.offsetY, it.alpha) })
+
+                            val previous = history.removeAt(history.lastIndex)
+
+                            layers.clear()
+
+                            previous.forEach { s -> layers.add(StickerEditorLayer(s.name, s.bitmap).also { it.visible=s.visible; it.scale=s.scale; it.rotation=s.rotation; it.offsetX=s.offsetX; it.offsetY=s.offsetY; it.alpha=s.alpha }) }
+
+                            activeLayer = layers.lastIndex; canvasVersion++
 
                         }
 
-                        pendingOutputBitmap = output
+                    },
 
-                        showSaveSizeDialog = true
+                    modifier = Modifier.weight(1f).height(40.dp),
 
-                    }
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
 
-                },
+                    shape = RoundedCornerShape(10.dp),
 
-                colors = ButtonDefaults.buttonColors(containerColor = editorRed),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2B2B30))
 
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                ) {
 
-            ) { Text("💾 Save", color = Color.White, fontSize = 14.sp) }
+                    Text("↶ Undo", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                }
+
+
+
+                // 2. Redo
+
+                Button(
+
+                    onClick = {
+
+                        if (redoHistory.isNotEmpty()) {
+
+                            history.add(layers.map { StickerEditorHistoryLayer(it.name, it.bitmap.copy(Bitmap.Config.ARGB_8888, true), it.visible, it.scale, it.rotation, it.offsetX, it.offsetY, it.alpha) })
+
+                            val next = redoHistory.removeAt(redoHistory.lastIndex)
+
+                            layers.clear()
+
+                            next.forEach { s -> layers.add(StickerEditorLayer(s.name, s.bitmap).also { it.visible=s.visible; it.scale=s.scale; it.rotation=s.rotation; it.offsetX=s.offsetX; it.offsetY=s.offsetY; it.alpha=s.alpha }) }
+
+                            activeLayer = layers.lastIndex; canvasVersion++
+
+                        }
+
+                    },
+
+                    modifier = Modifier.weight(1f).height(40.dp),
+
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+
+                    shape = RoundedCornerShape(10.dp),
+
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2B2B30))
+
+                ) {
+
+                    Text("↷ Redo", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                }
+
+
+
+                // 3. Template
+
+                Button(
+
+                    onClick = {
+
+                        val visibleLayers = layers.filter { it.visible }
+
+                        if (visibleLayers.isEmpty()) {
+
+                            notice = "Magdagdag muna ng larawan bago mag-save ng template."
+
+                        } else {
+
+                            showSaveTemplateDialog = true
+
+                        }
+
+                    },
+
+                    modifier = Modifier.weight(1f).height(40.dp),
+
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+
+                    shape = RoundedCornerShape(10.dp),
+
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+
+                ) {
+
+                    Text("📋 Template", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                }
+
+
+
+                // 4. Save
+
+                Button(
+
+                    onClick = {
+
+                        val visibleLayers = layers.filter { it.visible }
+
+                        if (visibleLayers.isEmpty()) {
+
+                            notice = "Magdagdag muna ng larawan bago mag-save."
+
+                        } else {
+
+                            val outputWidth = originalLayers.firstOrNull()?.width ?: visibleLayers.first().bitmap.width
+
+                            val outputHeight = originalLayers.firstOrNull()?.height ?: visibleLayers.first().bitmap.height
+
+                            val output = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888)
+
+                            val outputCanvas = Canvas(output)
+
+                            visibleLayers.forEach { layer ->
+
+                                outputCanvas.save()
+
+                                outputCanvas.translate(outputWidth / 2f + layer.offsetX, outputHeight / 2f + layer.offsetY)
+
+                                outputCanvas.rotate(layer.rotation)
+
+                                outputCanvas.scale(layer.scale, layer.scale)
+
+                                val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+
+                                    alpha = (layer.alpha * 255).toInt().coerceIn(0, 255)
+
+                                }
+
+                                outputCanvas.drawBitmap(
+
+                                    layer.bitmap,
+
+                                    -layer.bitmap.width / 2f,
+
+                                    -layer.bitmap.height / 2f,
+
+                                    paint
+
+                                )
+
+                                outputCanvas.restore()
+
+                            }
+
+                            pendingOutputBitmap = output
+
+                            showSaveSizeDialog = true
+
+                        }
+
+                    },
+
+                    modifier = Modifier.weight(1f).height(40.dp),
+
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+
+                    shape = RoundedCornerShape(10.dp),
+
+                    colors = ButtonDefaults.buttonColors(containerColor = editorRed)
+
+                ) {
+
+                    Text("💾 Save", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+
+                }
+
+            }
 
         }
 
@@ -3805,9 +4264,243 @@ private fun StickerEditorScreen(
 
         }
 
+        if (showSaveTemplateDialog) {
+
+            val templateCats = listOf("Cute", "Love", "Funny", "Reactions", "Meme", "Speech Bubbles")
+
+            AlertDialog(
+
+                onDismissRequest = { showSaveTemplateDialog = false },
+
+                title = { Text("Save as Template") },
+
+                text = {
+
+                    Column {
+
+                        Text("Template Name:")
+
+                        Spacer(Modifier.height(4.dp))
+
+                        OutlinedTextField(
+
+                            value = templateNameInput,
+
+                            onValueChange = { templateNameInput = it },
+
+                            singleLine = true,
+
+                            label = { Text("Template Name") },
+
+                            modifier = Modifier.fillMaxWidth()
+
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Text("Category:")
+
+                        Spacer(Modifier.height(4.dp))
+
+                        Row(
+
+                            modifier = Modifier
+
+                                .fillMaxWidth()
+
+                                .horizontalScroll(rememberScrollState()),
+
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+                        ) {
+
+                            templateCats.forEach { cat ->
+
+                                FilterChip(
+
+                                    selected = selectedCategoryInput == cat,
+
+                                    onClick = { selectedCategoryInput = cat },
+
+                                    label = { Text(cat, fontSize = 12.sp) }
+
+                                )
+
+                            }
+
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+
+                        Row(
+
+                            verticalAlignment = Alignment.CenterVertically,
+
+                            modifier = Modifier.clickable { isPublishedInput = !isPublishedInput }
+
+                        ) {
+
+                            Checkbox(
+
+                                checked = isPublishedInput,
+
+                                onCheckedChange = { isPublishedInput = it }
+
+                            )
+
+                            Spacer(Modifier.width(6.dp))
+
+                            Text("Publish to Community Templates", fontSize = 13.sp)
+
+                        }
+
+                    }
+
+                },
+
+                confirmButton = {
+
+                    Button(onClick = {
+
+                        val visibleLayers = layers.filter { it.visible }
+
+                        if (visibleLayers.isNotEmpty()) {
+
+                            val outputWidth = originalLayers.firstOrNull()?.width ?: visibleLayers.first().bitmap.width
+
+                            val outputHeight = originalLayers.firstOrNull()?.height ?: visibleLayers.first().bitmap.height
+
+                            val output = Bitmap.createBitmap(outputWidth, outputHeight, Bitmap.Config.ARGB_8888)
+
+                            val outputCanvas = Canvas(output)
+
+                            visibleLayers.forEach { layer ->
+
+                                outputCanvas.save()
+
+                                outputCanvas.translate(outputWidth / 2f + layer.offsetX, outputHeight / 2f + layer.offsetY)
+
+                                outputCanvas.rotate(layer.rotation)
+
+                                outputCanvas.scale(layer.scale, layer.scale)
+
+                                val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+
+                                    alpha = (layer.alpha * 255).toInt().coerceIn(0, 255)
+
+                                }
+
+                                outputCanvas.drawBitmap(
+
+                                    layer.bitmap,
+
+                                    -layer.bitmap.width / 2f,
+
+                                    -layer.bitmap.height / 2f,
+
+                                    paint
+
+                                )
+
+                                outputCanvas.restore()
+
+                            }
+
+
+
+                            val layerDataList = visibleLayers.map { layer ->
+
+                                Triple(
+
+                                    layer.name,
+
+                                    layer.bitmap,
+
+                                    UserTemplateLayerData(
+
+                                        name = layer.name,
+
+                                        bitmapFileName = null,
+
+                                        visible = layer.visible,
+
+                                        scale = layer.scale,
+
+                                        rotation = layer.rotation,
+
+                                        offsetX = layer.offsetX,
+
+                                        offsetY = layer.offsetY,
+
+                                        alpha = layer.alpha
+
+                                    )
+
+                                )
+
+                            }
+
+
+
+                            val saved = UserStickerTemplatesManager.saveUserTemplate(
+
+                                context = context,
+
+                                templateName = templateNameInput,
+
+                                creatorName = creatorName,
+
+                                category = selectedCategoryInput,
+
+                                layerDataList = layerDataList,
+
+                                previewBitmap = output,
+
+                                isPublished = isPublishedInput,
+
+                                isOwnedByCurrentUser = true
+
+                            )
+
+
+
+                            if (saved) {
+
+                                notice = "Template '$templateNameInput' saved to My Templates!"
+
+                                Toast.makeText(context, "Template saved to My Templates!", Toast.LENGTH_SHORT).show()
+
+                                showSaveTemplateDialog = false
+
+                            } else {
+
+                                notice = "Failed to save template."
+
+                                Toast.makeText(context, "Failed to save template.", Toast.LENGTH_SHORT).show()
+
+                            }
+
+                        }
+
+                    }) { Text("Save Template") }
+
+                },
+
+                dismissButton = {
+
+                    OutlinedButton(onClick = { showSaveTemplateDialog = false }) { Text("Cancel") }
+
+                }
+
+            )
+
+        }
+
 
 
 // Full Screen Canvas Container
+
+        var canvasSizePx by remember { mutableStateOf(Size.Zero) }
 
         Box(
 
@@ -3819,33 +4512,85 @@ private fun StickerEditorScreen(
 
                 .border(1.dp, Color(0xFF3B3B42), RoundedCornerShape(12.dp))
 
-                .background(Color(0xFF151518), RoundedCornerShape(12.dp)),
+                .background(Color(0xFF151518), RoundedCornerShape(12.dp))
+
+                .onGloballyPositioned { coordinates ->
+
+                    canvasSizePx = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
+
+                },
 
             contentAlignment = Alignment.Center
 
         ) {
 
+            val density = LocalDensity.current
+
+            val containerWidthPx = if (canvasSizePx.width > 0f) canvasSizePx.width else 1024f
+
+            val containerHeightPx = if (canvasSizePx.height > 0f) canvasSizePx.height else 1024f
+
             val visibleLayers = layers.filter { it.visible }
+
+
 
             if (visibleLayers.isEmpty()) Text("Pumili o magdagdag ng larawan", color = Color.White)
 
-            else Box(Modifier.fillMaxSize().pointerInput(currentTool, activeLayer, colorIndex, brushSize) {
+            else Box(Modifier.fillMaxSize().pointerInput(currentTool, activeLayer, colorIndex, brushSize, layers.size, canvasVersion) {
 
-                if (currentTool == "Move") {
+                if (currentTool != "Brush" && currentTool != "Eraser") {
 
-                    detectTransformGestures { _, pan, zoom, rotationChange ->
+                    awaitEachGesture {
 
-                        val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@detectTransformGestures
+                        val down = awaitFirstDown(requireUnconsumed = false)
 
-                        if (!layer.visible) return@detectTransformGestures
+                        val hitIndex = findLayerAtTouch(down.position, layers, Size(size.width.toFloat(), size.height.toFloat()))
 
-                        layer.offsetX += pan.x * canvasBaseWidth / size.width.coerceAtLeast(1)
+                        activeLayer = hitIndex
 
-                        layer.offsetY += pan.y * canvasBaseHeight / size.height.coerceAtLeast(1)
 
-                        layer.scale = (layer.scale * zoom).coerceIn(0.2f, 5f)
 
-                        layer.rotation += rotationChange
+                        do {
+
+                            val event = awaitPointerEvent()
+
+                            val canceled = event.changes.any { it.isConsumed }
+
+                            if (!canceled && activeLayer in 0..layers.lastIndex) {
+
+                                val pan = event.calculatePan()
+
+                                val zoom = event.calculateZoom()
+
+                                val rotationChange = event.calculateRotation()
+
+
+
+                                val layer = layers[activeLayer]
+
+                                if (layer.visible) {
+
+                                    layer.offsetX += pan.x * canvasBaseWidth / size.width.coerceAtLeast(1)
+
+                                    layer.offsetY += pan.y * canvasBaseHeight / size.height.coerceAtLeast(1)
+
+                                    layer.scale = (layer.scale * zoom).coerceIn(0.2f, 5f)
+
+                                    layer.rotation += rotationChange
+
+                                }
+
+
+
+                                if (pan != Offset.Zero || zoom != 1f || rotationChange != 0f) {
+
+                                    event.changes.forEach { it.consume() }
+
+                                }
+
+                            }
+
+                        } while (event.changes.any { it.pressed })
 
                     }
 
@@ -3927,9 +4672,9 @@ private fun StickerEditorScreen(
 
                             .graphicsLayer {
 
-                                translationX = layer.offsetX * size.width / canvasBaseWidth
+                                translationX = layer.offsetX * containerWidthPx / canvasBaseWidth
 
-                                translationY = layer.offsetY * size.height / canvasBaseHeight
+                                translationY = layer.offsetY * containerHeightPx / canvasBaseHeight
 
                                 scaleX = layer.scale
 
@@ -3941,7 +4686,7 @@ private fun StickerEditorScreen(
 
                             },
 
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.TopStart
 
                     ) {
 
@@ -3953,19 +4698,53 @@ private fun StickerEditorScreen(
 
                             contentScale = ContentScale.Fit,
 
-                            modifier = Modifier
-
-                                .fillMaxSize()
-
-                                .then(
-
-                                    if (isSelected && currentTool == "Move") Modifier.border(2.dp, editorRed, RoundedCornerShape(4.dp))
-
-                                    else Modifier
-
-                                )
+                            modifier = Modifier.fillMaxSize()
 
                         )
+
+
+
+                        if (isSelected && currentTool != "Brush" && currentTool != "Eraser") {
+
+                            val bmpW = layer.bitmap.width.coerceAtLeast(1).toFloat()
+
+                            val bmpH = layer.bitmap.height.coerceAtLeast(1).toFloat()
+
+
+
+                            val fitScale = minOf(containerWidthPx / bmpW, containerHeightPx / bmpH)
+
+                            val bitmapLeftInBox = (containerWidthPx - bmpW * fitScale) / 2f
+
+                            val bitmapTopInBox = (containerHeightPx - bmpH * fitScale) / 2f
+
+
+
+                            val bounds = layer.visibleBounds
+
+                            val selLeftDp = with(density) { (bitmapLeftInBox + bounds.left * fitScale).toDp() }
+
+                            val selTopDp = with(density) { (bitmapTopInBox + bounds.top * fitScale).toDp() }
+
+                            val selWidthDp = with(density) { (bounds.width() * fitScale).toDp() }
+
+                            val selHeightDp = with(density) { (bounds.height() * fitScale).toDp() }
+
+
+
+                            Box(
+
+                                modifier = Modifier
+
+                                    .offset(x = selLeftDp, y = selTopDp)
+
+                                    .size(width = selWidthDp, height = selHeightDp)
+
+                                    .border(2.dp, editorRed, RoundedCornerShape(4.dp))
+
+                            )
+
+                        }
 
                     }
 
@@ -4655,89 +5434,579 @@ private fun StickerEditorScreen(
 
 
 
-// Tool Selector Carousel
+        // Customizable 3-Page Tool Distribution & Swipe Pager
 
-        Row(
+        val defaultToolOrder = remember {
 
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
+            listOf(
 
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                "Rotate 90°", "Flip", "Center", "Reset",
 
-        ) {
+                "Duplicate", "Remove BG", "Outline", "Eraser",
 
-            editorTools.forEach { (tool, icon) ->
+                "Brush", "Emoji", "Auto BG", "Online BG",
 
-                val active = currentTool == tool
+                "Camera", "Gallery", "Restore", "Shapes",
 
-                Surface(
+                "Text", "Filters", "Layers"
 
-                    onClick = {
+            )
 
-                        currentTool = tool
+        }
 
-                        when (tool) {
 
-                            "Camera" -> cameraLauncher.launch(null)
 
-                            "Gallery" -> launcher.launch("image/*")
+        val prefs = remember { context.getSharedPreferences("mysticker_settings", Context.MODE_PRIVATE) }
 
-                            "Text" -> textDialog = true
+        var isCustomizeMode by remember { mutableStateOf(false) }
 
-                            "Emoji" -> emojiDialog = true
+        var draggedToolName by remember { mutableStateOf<String?>(null) }
 
-                            "Auto BG" -> {
+        var dragOffset by remember { mutableStateOf(Offset.Zero) }
 
-                                previewBgBitmap = generateFreeAutoBackgroundBitmap(1024, 1024)
+        var lastPageSwitchTime by remember { mutableLongStateOf(0L) }
 
-                                backgroundGenDialog = true
 
-                            }
 
-                            "Online BG" -> onlineBgDialog = true
+        val customToolOrder = remember {
 
-                            "Restore" -> {
+            val savedOrder = prefs.getString("custom_tool_order", null)
 
-                                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+            val list = mutableStateListOf<String>()
 
-                                if (layer != null) {
+            if (!savedOrder.isNullOrEmpty()) {
 
-                                    val orig = originalBitmapsMap[layer.name] ?: originalLayers.firstOrNull()
+                val items = savedOrder.split(",").map { it.trim() }.filter { it.isNotEmpty() }
 
-                                    if (orig != null) {
+                list.addAll(items)
 
-                                        snapshot()
+                defaultToolOrder.forEach { tool ->
 
-                                        layer.bitmap = orig.copy(Bitmap.Config.ARGB_8888, true)
+                    if (!list.contains(tool)) list.add(tool)
 
-                                        canvasVersion++
+                }
 
-                                        notice = "Na-restore ang layer."
+            } else {
 
-                                    } else notice = "Walang nahanap na original copy."
+                list.addAll(defaultToolOrder)
 
-                                } else notice = "Pumili muna ng layer."
+            }
+
+            list
+
+        }
+
+
+
+        val allToolsMap: Map<String, EditorToolSpec> = remember(activeLayer, layers.size, canvasVersion, currentTool) {
+
+            mapOf(
+
+                "Rotate 90°" to EditorToolSpec("Rotate 90°", "🔄") {
+
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@EditorToolSpec
+
+                    snapshot()
+
+                    layer.rotation = (layer.rotation + 90f) % 360f
+
+                    canvasVersion++
+
+                },
+
+                "Flip" to EditorToolSpec("Flip", "↔") {
+
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@EditorToolSpec
+
+                    snapshot()
+
+                    layer.scale = -layer.scale
+
+                    canvasVersion++
+
+                },
+
+                "Center" to EditorToolSpec("Center", "🎯") {
+
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@EditorToolSpec
+
+                    snapshot()
+
+                    layer.offsetX = 0f
+
+                    layer.offsetY = 0f
+
+                    canvasVersion++
+
+                },
+
+                "Reset" to EditorToolSpec("Reset", "↺") {
+
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@EditorToolSpec
+
+                    snapshot()
+
+                    layer.offsetX = 0f
+
+                    layer.offsetY = 0f
+
+                    layer.scale = 1f
+
+                    layer.rotation = 0f
+
+                    canvasVersion++
+
+                },
+
+                "Duplicate" to EditorToolSpec("Duplicate", "📋") {
+
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@EditorToolSpec
+
+                    addBitmap("${layer.name} Copy", layer.bitmap)
+
+                    notice = "Na-duplicate ang layer."
+
+                },
+
+                "Remove BG" to EditorToolSpec("Remove BG", "✂️") { currentTool = "Remove BG" },
+
+                "Outline" to EditorToolSpec("Outline", "🎨") { currentTool = "Outline" },
+
+                "Eraser" to EditorToolSpec("Eraser", "🧹") { currentTool = "Eraser" },
+
+                "Brush" to EditorToolSpec("Brush", "🖌️") { currentTool = "Brush" },
+
+                "Emoji" to EditorToolSpec("Emoji", "⭐") { currentTool = "Emoji"; emojiDialog = true },
+
+                "Auto BG" to EditorToolSpec("Auto BG", "🌌") {
+
+                    currentTool = "Auto BG"
+
+                    previewBgBitmap = generateFreeAutoBackgroundBitmap(1024, 1024)
+
+                    backgroundGenDialog = true
+
+                },
+
+                "Online BG" to EditorToolSpec("Online BG", "🌐") { currentTool = "Online BG"; onlineBgDialog = true },
+
+                "Camera" to EditorToolSpec("Camera", "📸") { currentTool = "Camera"; cameraLauncher.launch(null) },
+
+                "Gallery" to EditorToolSpec("Gallery", "🖼️") { currentTool = "Gallery"; launcher.launch("image/*") },
+
+                "Restore" to EditorToolSpec("Restore", "↩️") {
+
+                    currentTool = "Restore"
+
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+
+                    if (layer != null) {
+
+                        val orig = originalBitmapsMap[layer.name] ?: originalLayers.firstOrNull()
+
+                        if (orig != null) {
+
+                            snapshot()
+
+                            layer.bitmap = orig.copy(Bitmap.Config.ARGB_8888, true)
+
+                            canvasVersion++
+
+                            notice = "Na-restore ang layer."
+
+                        } else notice = "Walang nahanap na original copy."
+
+                    } else notice = "Pumili muna ng layer."
+
+                },
+
+                "Shapes" to EditorToolSpec("Shapes", "◩") { currentTool = "Shapes" },
+
+                "Text" to EditorToolSpec("Text", "T") { currentTool = "Text"; textDialog = true },
+
+                "Filters" to EditorToolSpec("Filters", "✨") { currentTool = "Filters" },
+
+                "Layers" to EditorToolSpec("Layers", "🥞") { currentTool = "Layers" }
+
+            )
+
+        }
+
+
+
+        val toolPages: List<List<EditorToolSpec?>> = remember(customToolOrder.toList(), allToolsMap) {
+
+            val specs = customToolOrder.map { allToolsMap[it] }
+
+            val page1 = specs.take(12).let { list -> list + List((12 - list.size).coerceAtLeast(0)) { null } }
+
+            val page2 = specs.drop(12).take(12).let { list -> list + List((12 - list.size).coerceAtLeast(0)) { null } }
+
+            val page3 = specs.drop(24).take(12).let { list -> list + List((12 - list.size).coerceAtLeast(0)) { null } }
+
+            listOf(page1, page2, page3)
+
+        }
+
+
+
+        val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
+
+
+
+        HorizontalPager(
+
+            state = pagerState,
+
+            modifier = Modifier
+
+                .fillMaxWidth()
+
+                .padding(horizontal = 4.dp)
+
+        ) { pageIndex ->
+
+            val pageTools = toolPages.getOrElse(pageIndex) { List(12) { null } }
+
+
+
+            Column(
+
+                modifier = Modifier.fillMaxWidth(),
+
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+
+            ) {
+
+                for (rowIndex in 0..2) {
+
+                    Row(
+
+                        modifier = Modifier.fillMaxWidth(),
+
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+                    ) {
+
+                        for (colIndex in 0..3) {
+
+                            val toolIdx = rowIndex * 4 + colIndex
+
+                            val globalIdx = pageIndex * 12 + toolIdx
+
+                            val spec = pageTools.getOrNull(toolIdx)
+
+
+
+                            if (spec != null) {
+
+                                val isSelected = currentTool == spec.name
+
+                                val isBeingDragged = spec.name == draggedToolName
+
+
+
+                                Surface(
+
+                                    onClick = {
+
+                                        if (!isCustomizeMode) {
+
+                                            spec.onClick()
+
+                                        }
+
+                                    },
+
+                                    shape = RoundedCornerShape(10.dp),
+
+                                    color = if (isBeingDragged) Color(0xFF33333E) else if (isSelected) editorRed else panelColor,
+
+                                    border = if (isBeingDragged) BorderStroke(2.dp, editorRed) else if (isCustomizeMode) BorderStroke(1.dp, Color(0xFF4A4A52)) else if (isSelected) BorderStroke(1.dp, editorRed) else BorderStroke(1.dp, Color(0xFF383840)),
+
+                                    modifier = Modifier
+
+                                        .weight(1f)
+
+                                        .height(42.dp)
+
+                                        .graphicsLayer {
+
+                                            if (isBeingDragged) {
+
+                                                translationX = dragOffset.x
+
+                                                translationY = dragOffset.y
+
+                                                scaleX = 1.08f
+
+                                                scaleY = 1.08f
+
+                                                shadowElevation = 12f
+
+                                            }
+
+                                        }
+
+                                        .pointerInput(spec.name, isCustomizeMode) {
+
+                                            if (isCustomizeMode) {
+
+                                                detectDragGesturesAfterLongPress(
+
+                                                    onDragStart = {
+
+                                                        draggedToolName = spec.name
+
+                                                        dragOffset = Offset.Zero
+
+                                                    },
+
+                                                    onDrag = { change, dragAmount ->
+
+                                                        change.consume()
+
+                                                        dragOffset += dragAmount
+
+                                                        val currentToolName = draggedToolName ?: return@detectDragGesturesAfterLongPress
+
+                                                        val currentIdx = customToolOrder.indexOf(currentToolName)
+
+                                                        if (currentIdx == -1) return@detectDragGesturesAfterLongPress
+
+
+
+                                                        val itemWidthPx = (size.width.toFloat()).coerceAtLeast(1f)
+
+                                                        val itemHeightPx = 42.dp.toPx()
+
+                                                        val colShift = (dragOffset.x / itemWidthPx).toInt()
+
+                                                        val rowShift = (dragOffset.y / itemHeightPx).toInt()
+
+                                                        val targetIdx = (currentIdx + rowShift * 4 + colShift)
+
+                                                            .coerceIn(0, customToolOrder.lastIndex)
+
+
+
+                                                        if (targetIdx != currentIdx) {
+
+                                                            val movedItem = customToolOrder.removeAt(currentIdx)
+
+                                                            customToolOrder.add(targetIdx, movedItem)
+
+                                                            dragOffset -= Offset(colShift * itemWidthPx, rowShift * itemHeightPx)
+
+                                                        }
+
+
+
+                                                        val targetPage = targetIdx / 12
+
+                                                        val now = System.currentTimeMillis()
+
+                                                        if (targetPage != pagerState.currentPage && now - lastPageSwitchTime > 350L) {
+
+                                                            lastPageSwitchTime = now
+
+                                                            scope.launch { pagerState.animateScrollToPage(targetPage) }
+
+                                                        }
+
+                                                    },
+
+                                                    onDragEnd = {
+
+                                                        draggedToolName = null
+
+                                                        dragOffset = Offset.Zero
+
+                                                    },
+
+                                                    onDragCancel = {
+
+                                                        draggedToolName = null
+
+                                                        dragOffset = Offset.Zero
+
+                                                    }
+
+                                                )
+
+                                            }
+
+                                        }
+
+                                ) {
+
+                                    Row(
+
+                                        modifier = Modifier.padding(horizontal = 2.dp, vertical = 2.dp),
+
+                                        verticalAlignment = Alignment.CenterVertically,
+
+                                        horizontalArrangement = Arrangement.Center
+
+                                    ) {
+
+                                        Text(spec.icon, color = Color.White, fontSize = 13.sp)
+
+                                        Spacer(Modifier.width(3.dp))
+
+                                        Text(
+
+                                            spec.name,
+
+                                            color = Color.White,
+
+                                            fontSize = 10.sp,
+
+                                            fontWeight = if (isSelected || isBeingDragged) FontWeight.Bold else FontWeight.Normal,
+
+                                            maxLines = 1,
+
+                                            overflow = TextOverflow.Ellipsis
+
+                                        )
+
+                                    }
+
+                                }
+
+                            } else {
+
+                                Spacer(modifier = Modifier.weight(1f))
 
                             }
 
                         }
 
+                    }
+
+                }
+
+            }
+
+        }
+
+
+
+        // Page Indicator Dots & Customize Mode Controls
+
+        Row(
+
+            modifier = Modifier
+
+                .fillMaxWidth()
+
+                .padding(vertical = 4.dp),
+
+            horizontalArrangement = Arrangement.Center,
+
+            verticalAlignment = Alignment.CenterVertically
+
+        ) {
+
+            repeat(3) { pageIdx ->
+
+                val isActive = pagerState.currentPage == pageIdx
+
+                Box(
+
+                    modifier = Modifier
+
+                        .padding(horizontal = 4.dp)
+
+                        .size(8.dp)
+
+                        .clip(CircleShape)
+
+                        .background(if (isActive) editorRed else Color(0xFF55555C))
+
+                )
+
+            }
+
+
+
+            Spacer(Modifier.width(16.dp))
+
+
+
+            if (!isCustomizeMode) {
+
+                TextButton(
+
+                    onClick = {
+
+                        isCustomizeMode = true
+
+                        notice = "⚙️ Tool Rearrangement Mode — Long press and drag any tool button!"
+
                     },
 
-                    shape = RoundedCornerShape(10.dp),
-
-                    color = if (active) editorRed else panelColor,
-
-                    modifier = Modifier.height(38.dp)
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
 
                 ) {
 
-                    Row(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("⚙️ Customize", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
 
-                        Text(icon, color = Color.White, fontSize = 14.sp)
+                }
 
-                        Spacer(Modifier.width(4.dp))
+            } else {
 
-                        Text(tool, color = Color.White, fontSize = 12.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+
+                    Button(
+
+                        onClick = {
+
+                            isCustomizeMode = false
+
+                            val savedStr = customToolOrder.joinToString(",")
+
+                            prefs.edit().putString("custom_tool_order", savedStr).apply()
+
+                            Toast.makeText(context, "Tool layout saved!", Toast.LENGTH_SHORT).show()
+
+                            notice = "Tool layout saved!"
+
+                        },
+
+                        colors = ButtonDefaults.buttonColors(containerColor = editorRed),
+
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+
+                    ) {
+
+                        Text("✅ Done", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+
+                    }
+
+
+
+                    OutlinedButton(
+
+                        onClick = {
+
+                            customToolOrder.clear()
+
+                            customToolOrder.addAll(defaultToolOrder)
+
+                            prefs.edit().remove("custom_tool_order").apply()
+
+                            Toast.makeText(context, "Tool layout reset to default.", Toast.LENGTH_SHORT).show()
+
+                            notice = "Tool layout reset to default."
+
+                        },
+
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+
+                    ) {
+
+                        Text("↺ Reset", fontSize = 11.sp)
 
                     }
 
@@ -4804,6 +6073,8 @@ private fun StickerEditorScreen(
                         canvas.drawText(layerText, 256f, 140f, paint)
 
                         addBitmap("Text: $layerText", bitmap)
+
+                        currentTool = "Move"
 
                         layerText = ""
 
