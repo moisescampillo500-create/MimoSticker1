@@ -578,10 +578,26 @@ private fun StickerEraserPreview(
                                     val top = (size.height - drawnHeight) / 2f + pan.y
                                     val imageX = (point.x - left) / scale
                                     val imageY = (point.y - top) / scale
-                                    if (imageX in 0f..bitmap.width.toFloat() && imageY in 0f..bitmap.height.toFloat()) {
+                                    if (imageX in -100f..bitmap.width.toFloat() + 100f && imageY in -100f..bitmap.height.toFloat() + 100f) {
                                         val radius = (eraserSizeDp * density / 2f) / scale
-                                        AndroidCanvas(bitmap).drawCircle(imageX, imageY, radius, clearPaint)
-                                        AndroidCanvas(cutout).drawCircle(imageX, imageY, radius, clearPaint)
+                                        val strokeWidth = radius * 2f
+                                        val strokePaint = AndroidPaint(clearPaint).apply {
+                                            style = AndroidPaint.Style.STROKE
+                                            strokeCap = AndroidPaint.Cap.ROUND
+                                            strokeJoin = AndroidPaint.Join.ROUND
+                                            this.strokeWidth = strokeWidth
+                                        }
+                                        val prevPoint = if (previousCount == 1 && previousSingle != Offset.Zero) previousSingle else point
+                                        val prevX = (prevPoint.x - left) / scale
+                                        val prevY = (prevPoint.y - top) / scale
+
+                                        if (prevX == imageX && prevY == imageY) {
+                                            AndroidCanvas(bitmap).drawCircle(imageX, imageY, radius, clearPaint)
+                                            AndroidCanvas(cutout).drawCircle(imageX, imageY, radius, clearPaint)
+                                        } else {
+                                            AndroidCanvas(bitmap).drawLine(prevX, prevY, imageX, imageY, strokePaint)
+                                            AndroidCanvas(cutout).drawLine(prevX, prevY, imageX, imageY, strokePaint)
+                                        }
                                         onErase()
                                     }
                                 }

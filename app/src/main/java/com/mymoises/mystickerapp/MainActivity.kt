@@ -42,6 +42,9 @@ import androidx.compose.foundation.pager.rememberPagerState
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -50,6 +53,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -125,6 +129,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.FileProvider
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
@@ -499,7 +504,7 @@ fun MyStickerApp() {
 
                             NavigationBarItem(
 
-                                selected = selectedScreen == "Create" || selectedScreen == "Templates",
+                                selected = selectedScreen == "Create" || selectedScreen == "Templates" || selectedScreen == "My Projects",
 
                                 onClick = { selectedScreen = "Create" },
 
@@ -595,15 +600,17 @@ fun MyStickerApp() {
 
                         MyHomeScreen(
 
-                            stickerFiles = remember<List<File>>(stickerRefresh) {
+                            onCreateProject = { selectedScreen = "My Sticker" },
 
-                                loadMyStickerFiles(context)
+                            onSelectTemplate = { userTemplate ->
+
+                                selectedUserTemplateToEdit = userTemplate
+
+                                selectedScreen = "EditUserTemplate"
 
                             },
 
-                            onAddSticker = { selectedScreen = "Create" },
-
-                            onSeeAllStickers = { selectedScreen = "MyStickers" }
+                            onSeeAllTemplates = { selectedScreen = "Templates" }
 
                         )
 
@@ -1135,129 +1142,37 @@ fun MyStickerApp() {
 
                             previewTarget?.let { file ->
 
-                                val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
+                                LargeStickerPreviewDialog(
 
-                                AlertDialog(
+                                    file = file,
 
-                                    onDismissRequest = { previewTarget = null },
+                                    onDismiss = { previewTarget = null },
 
-                                    title = { Text(file.nameWithoutExtension) },
+                                    onSave = { targetFile ->
 
-                                    text = {
+                                        previewTarget = null
 
-                                        Column(
+                                        sizeDialogTarget = targetFile
 
-                                            horizontalAlignment = Alignment.CenterHorizontally,
-
-                                            modifier = Modifier.fillMaxWidth()
-
-                                        ) {
-
-                                            Box(
-
-                                                modifier = Modifier
-
-                                                    .fillMaxWidth()
-
-                                                    .height(240.dp)
-
-                                                    .background(Color(0xFF1E1E22), RoundedCornerShape(16.dp))
-
-                                                    .padding(8.dp),
-
-                                                contentAlignment = Alignment.Center
-
-                                            ) {
-
-                                                Checkerboard(Modifier.matchParentSize())
-
-                                                if (bitmap != null) {
-
-                                                    Image(
-
-                                                        bitmap = bitmap.asImageBitmap(),
-
-                                                        contentDescription = file.name,
-
-                                                        contentScale = ContentScale.Fit,
-
-                                                        modifier = Modifier.fillMaxSize()
-
-                                                    )
-
-                                                }
-
-                                            }
-
-                                        }
+                                        sizeDialogAction = "device_gallery"
 
                                     },
 
-                                    confirmButton = {
+                                    onWhatsApp = { targetFile ->
 
-                                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        previewTarget = null
 
-                                            TextButton(onClick = {
+                                        sizeDialogTarget = targetFile
 
-                                                val target = previewTarget
+                                        sizeDialogAction = "whatsapp"
 
-                                                previewTarget = null
+                                    },
 
-                                                if (target != null) {
+                                    onShare = { targetFile ->
 
-                                                    sizeDialogTarget = target
+                                        previewTarget = null
 
-                                                    sizeDialogAction = "device_gallery"
-
-                                                }
-
-                                            }) { Text("💾 Save") }
-
-                                            TextButton(onClick = {
-
-                                                val target = previewTarget
-
-                                                previewTarget = null
-
-                                                if (target != null) {
-
-                                                    sizeDialogTarget = target
-
-                                                    sizeDialogAction = "whatsapp"
-
-                                                }
-
-                                            }) { Text("💬 WhatsApp") }
-
-                                            TextButton(onClick = {
-
-                                                val target = previewTarget
-
-                                                previewTarget = null
-
-                                                if (target != null) shareStickerFile(context, target)
-
-                                            }) { Text("📤 Share") }
-
-                                            TextButton(onClick = {
-
-                                                val target = previewTarget
-
-                                                previewTarget = null
-
-                                                if (target != null) {
-
-                                                    selectedStickerToEdit = target
-
-                                                    selectedScreen = "EditSavedSticker"
-
-                                                }
-
-                                            }) { Text("✏️ Edit") }
-
-                                            TextButton(onClick = { previewTarget = null }) { Text("Close") }
-
-                                        }
+                                        shareStickerFile(context, targetFile)
 
                                     }
 
@@ -1389,23 +1304,17 @@ fun MyStickerApp() {
 
                         CreateStickerMenu(
 
-                            onRemoveBackground = {
+                            onCreateProject = { selectedScreen = "My Sticker" },
 
-                                selectedScreen = "Remove Background"
+                            onMyProjects = { selectedScreen = "My Projects" },
 
-                            },
+                            onRemoveBackground = { selectedScreen = "Remove Background" },
 
-                            onEditSticker = {
+                            onEditSticker = { selectedScreen = "My Sticker" },
 
-                                selectedScreen = "My Sticker"
+                            onTemplates = { selectedScreen = "Templates" },
 
-                            },
-
-                            onTemplates = {
-
-                                selectedScreen = "Templates"
-
-                            }
+                            onTextSticker = { selectedScreen = "AI Text-to-Sticker" }
 
                         )
 
@@ -1981,129 +1890,37 @@ fun MyStickerApp() {
 
                         previewTarget?.let { file ->
 
-                            val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
+                            LargeStickerPreviewDialog(
 
-                            AlertDialog(
+                                file = file,
 
-                                onDismissRequest = { previewTarget = null },
+                                onDismiss = { previewTarget = null },
 
-                                title = { Text(file.nameWithoutExtension) },
+                                onSave = { targetFile ->
 
-                                text = {
+                                    previewTarget = null
 
-                                    Column(
+                                    sizeDialogTarget = targetFile
 
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-
-                                        modifier = Modifier.fillMaxWidth()
-
-                                    ) {
-
-                                        Box(
-
-                                            modifier = Modifier
-
-                                                .fillMaxWidth()
-
-                                                .height(240.dp)
-
-                                                .background(Color(0xFF1E1E22), RoundedCornerShape(16.dp))
-
-                                                .padding(8.dp),
-
-                                            contentAlignment = Alignment.Center
-
-                                        ) {
-
-                                            Checkerboard(Modifier.matchParentSize())
-
-                                            if (bitmap != null) {
-
-                                                Image(
-
-                                                    bitmap = bitmap.asImageBitmap(),
-
-                                                    contentDescription = file.name,
-
-                                                    contentScale = ContentScale.Fit,
-
-                                                    modifier = Modifier.fillMaxSize()
-
-                                                )
-
-                                            }
-
-                                        }
-
-                                    }
+                                    sizeDialogAction = "device_gallery"
 
                                 },
 
-                                confirmButton = {
+                                onWhatsApp = { targetFile ->
 
-                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    previewTarget = null
 
-                                        TextButton(onClick = {
+                                    sizeDialogTarget = targetFile
 
-                                            val target = previewTarget
+                                    sizeDialogAction = "whatsapp"
 
-                                            previewTarget = null
+                                },
 
-                                            if (target != null) {
+                                onShare = { targetFile ->
 
-                                                sizeDialogTarget = target
+                                    previewTarget = null
 
-                                                sizeDialogAction = "device_gallery"
-
-                                            }
-
-                                        }) { Text("💾 Save") }
-
-                                        TextButton(onClick = {
-
-                                            val target = previewTarget
-
-                                            previewTarget = null
-
-                                            if (target != null) {
-
-                                                sizeDialogTarget = target
-
-                                                sizeDialogAction = "whatsapp"
-
-                                            }
-
-                                        }) { Text("💬 WhatsApp") }
-
-                                        TextButton(onClick = {
-
-                                            val target = previewTarget
-
-                                            previewTarget = null
-
-                                            if (target != null) shareStickerFile(context, target)
-
-                                        }) { Text("📤 Share") }
-
-                                        TextButton(onClick = {
-
-                                            val target = previewTarget
-
-                                            previewTarget = null
-
-                                            if (target != null) {
-
-                                                selectedStickerToEdit = target
-
-                                                selectedScreen = "EditSavedSticker"
-
-                                            }
-
-                                        }) { Text("✏️ Edit") }
-
-                                        TextButton(onClick = { previewTarget = null }) { Text("Close") }
-
-                                    }
+                                    shareStickerFile(context, targetFile)
 
                                 }
 
@@ -2273,21 +2090,29 @@ fun MyStickerApp() {
 
 
 
-                    "My Creations" -> {
+                    "My Projects", "My Creations" -> {
 
-                        Text("🎨 My Creations", fontSize = 28.sp)
+                        MyProjectsScreen(
 
-                        Spacer(Modifier.height(16.dp))
+                            onContinueEditTemplate = { userTemplate ->
 
-                        Text("Your creations will appear here.")
+                                selectedUserTemplateToEdit = userTemplate
 
+                                selectedScreen = "EditUserTemplate"
 
+                            },
 
-                        AppButton("← Back to My Screen") {
+                            onEditStickerFile = { file ->
 
-                            selectedScreen = "My Screen"
+                                selectedStickerToEdit = file
 
-                        }
+                                selectedScreen = "EditSavedSticker"
+
+                            },
+
+                            onBack = { selectedScreen = "Create" }
+
+                        )
 
                     }
 
@@ -2657,7 +2482,7 @@ fun MyStickerApp() {
 
 @Composable
 
-private fun Checkerboard(modifier: Modifier = Modifier) {
+fun Checkerboard(modifier: Modifier = Modifier) {
 
     ComposeCanvas(modifier = modifier) {
 
@@ -2707,195 +2532,273 @@ private fun Checkerboard(modifier: Modifier = Modifier) {
 
 @Composable
 
-private fun MyHomeScreen(
+private fun LargeStickerPreviewDialog(
 
-    stickerFiles: List<File>,
+    file: File,
 
-    onAddSticker: () -> Unit,
+    onDismiss: () -> Unit,
 
-    onSeeAllStickers: () -> Unit
+    onSave: (File) -> Unit,
+
+    onWhatsApp: (File) -> Unit,
+
+    onShare: (File) -> Unit
 
 ) {
 
-    Column(
-
-        modifier = Modifier.fillMaxWidth(),
-
-        horizontalAlignment = Alignment.Start
-
-    ) {
-
-        Text("My Home", style = MaterialTheme.typography.headlineMedium)
-
-        Spacer(Modifier.height(16.dp))
+    val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
 
 
 
-        Button(
+    Dialog(onDismissRequest = onDismiss) {
 
-            onClick = onAddSticker,
+        Surface(
 
-            modifier = Modifier.fillMaxWidth().heightIn(min = 58.dp),
+            shape = RoundedCornerShape(24.dp),
 
-            shape = RoundedCornerShape(16.dp)
+            color = Color(0xFFF8F5FF),
+
+            tonalElevation = 8.dp,
+
+            modifier = Modifier
+
+                .fillMaxWidth()
+
+                .padding(vertical = 12.dp)
 
         ) {
 
-            Text("＋ Add Sticker", fontSize = 18.sp)
+            Column(
 
-        }
+                modifier = Modifier
 
+                    .fillMaxWidth()
 
+                    .padding(16.dp),
 
-        Spacer(Modifier.height(12.dp))
-
-        Text("Dito makikita ang mga sticker mo.")
-
-        Spacer(Modifier.height(20.dp))
-
-
-
-        Row(
-
-            modifier = Modifier.fillMaxWidth(),
-
-            verticalAlignment = Alignment.CenterVertically,
-
-            horizontalArrangement = Arrangement.SpaceBetween
-
-        ) {
-
-            Text("My Stickers", style = MaterialTheme.typography.titleLarge)
-
-            TextButton(onClick = onSeeAllStickers) { Text("See all") }
-
-        }
-
-
-
-        if (stickerFiles.isEmpty()) {
-
-            Card(
-
-                modifier = Modifier.fillMaxWidth(),
-
-                shape = RoundedCornerShape(16.dp),
-
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F5))
+                horizontalAlignment = Alignment.CenterHorizontally
 
             ) {
 
+                // Header Title: Sticker File Name
+
                 Text(
 
-                    "Wala ka pang sticker. Pindutin ang Add Sticker para gumawa ng una mo.",
+                    text = file.nameWithoutExtension,
 
-                    modifier = Modifier.padding(18.dp),
+                    style = MaterialTheme.typography.titleMedium,
 
-                    color = Color.DarkGray
+                    fontWeight = FontWeight.Bold,
+
+                    color = Color(0xFF1E1B4B),
+
+                    maxLines = 1,
+
+                    overflow = TextOverflow.Ellipsis
 
                 )
 
-            }
 
-        } else {
 
-            stickerFiles.take(4).chunked(4).forEach { rowFiles ->
+                Spacer(Modifier.height(12.dp))
+
+
+
+                // Large Canvas Preview Box
+
+                Box(
+
+                    modifier = Modifier
+
+                        .fillMaxWidth()
+
+                        .height(380.dp)
+
+                        .clip(RoundedCornerShape(16.dp))
+
+                        .background(Color(0xFFF0EBFE)),
+
+                    contentAlignment = Alignment.Center
+
+                ) {
+
+                    Checkerboard(Modifier.matchParentSize())
+
+                    if (bitmap != null) {
+
+                        Image(
+
+                            bitmap = bitmap.asImageBitmap(),
+
+                            contentDescription = file.name,
+
+                            contentScale = ContentScale.Fit,
+
+                            modifier = Modifier
+
+                                .fillMaxSize()
+
+                                .padding(12.dp)
+
+                        )
+
+                    }
+
+                }
+
+
+
+                Spacer(Modifier.height(16.dp))
+
+
+
+                // Bottom Action Buttons Row (Save | WhatsApp | Share)
 
                 Row(
 
                     modifier = Modifier.fillMaxWidth(),
 
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalAlignment = Alignment.CenterVertically,
+
+                    horizontalArrangement = Arrangement.SpaceEvenly
 
                 ) {
 
-                    rowFiles.forEach { file ->
+                    // Save Button
 
-                        key(file.absolutePath) {
+                    Column(
 
-                            Card(
+                        horizontalAlignment = Alignment.CenterHorizontally,
 
-                                modifier = Modifier.weight(1f),
+                        modifier = Modifier
 
-                                shape = RoundedCornerShape(16.dp)
+                            .weight(1f)
 
-                            ) {
+                            .clickable { onSave(file) }
 
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            .padding(vertical = 4.dp)
 
-                                    val bitmap = remember(file.absolutePath) {
+                    ) {
 
-                                        BitmapFactory.decodeFile(file.absolutePath)
+                        Text("💾", fontSize = 22.sp)
 
-                                    }
+                        Spacer(Modifier.height(2.dp))
 
-                                    if (bitmap != null) {
+                        Text(
 
-                                        Box(
+                            "Save",
 
-                                            modifier = Modifier
+                            color = Color(0xFFE53935),
 
-                                                .fillMaxWidth()
+                            fontSize = 13.sp,
 
-                                                .height(84.dp)
+                            fontWeight = FontWeight.Bold
 
-                                                .padding(4.dp)
-
-                                        ) {
-
-                                            Checkerboard(Modifier.matchParentSize())
-
-                                            Image(
-
-                                                bitmap = bitmap.asImageBitmap(),
-
-                                                contentDescription = file.name,
-
-                                                contentScale = ContentScale.Fit,
-
-                                                modifier = Modifier.fillMaxSize()
-
-                                            )
-
-                                        }
-
-                                    } else {
-
-                                        Box(
-
-                                            modifier = Modifier.fillMaxWidth().height(84.dp),
-
-                                            contentAlignment = Alignment.Center
-
-                                        ) { Text("🖼️") }
-
-                                    }
-
-                                    Text(
-
-                                        file.nameWithoutExtension,
-
-                                        maxLines = 1,
-
-                                        modifier = Modifier.padding(start = 4.dp, end = 4.dp, bottom = 6.dp),
-
-                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp)
-
-                                    )
-
-                                }
-
-                            }
-
-                        }
+                        )
 
                     }
 
-                    repeat(4 - rowFiles.size) { Spacer(Modifier.weight(1f)) }
+
+
+                    Box(
+
+                        modifier = Modifier
+
+                            .width(1.dp)
+
+                            .height(32.dp)
+
+                            .background(Color(0xFFE0D8F5))
+
+                    )
+
+
+
+                    // WhatsApp Button
+
+                    Column(
+
+                        horizontalAlignment = Alignment.CenterHorizontally,
+
+                        modifier = Modifier
+
+                            .weight(1f)
+
+                            .clickable { onWhatsApp(file) }
+
+                            .padding(vertical = 4.dp)
+
+                    ) {
+
+                        Text("💬", fontSize = 22.sp)
+
+                        Spacer(Modifier.height(2.dp))
+
+                        Text(
+
+                            "WhatsApp",
+
+                            color = Color(0xFFE53935),
+
+                            fontSize = 13.sp,
+
+                            fontWeight = FontWeight.Bold
+
+                        )
+
+                    }
+
+
+
+                    Box(
+
+                        modifier = Modifier
+
+                            .width(1.dp)
+
+                            .height(32.dp)
+
+                            .background(Color(0xFFE0D8F5))
+
+                    )
+
+
+
+                    // Share Button
+
+                    Column(
+
+                        horizontalAlignment = Alignment.CenterHorizontally,
+
+                        modifier = Modifier
+
+                            .weight(1f)
+
+                            .clickable { onShare(file) }
+
+                            .padding(vertical = 4.dp)
+
+                    ) {
+
+                        Text("📤", fontSize = 22.sp)
+
+                        Spacer(Modifier.height(2.dp))
+
+                        Text(
+
+                            "Share",
+
+                            color = Color(0xFFE53935),
+
+                            fontSize = 13.sp,
+
+                            fontWeight = FontWeight.Bold
+
+                        )
+
+                    }
 
                 }
-
-                Spacer(Modifier.height(12.dp))
 
             }
 
@@ -2907,13 +2810,461 @@ private fun MyHomeScreen(
 
 
 
-// =====================================
+@Composable
+private fun MyHomeScreen(
+    onCreateProject: () -> Unit,
+    onSelectTemplate: (UserStickerTemplate) -> Unit,
+    onSeeAllTemplates: () -> Unit
+) {
+    val context = LocalContext.current
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("All") }
+    var templatesRefresh by remember { mutableIntStateOf(0) }
+    var previewTemplate by remember { mutableStateOf<UserStickerTemplate?>(null) }
 
+    // Real discovery template lists connected to database
+    val trendingTemplates = remember(selectedCategory, searchQuery, templatesRefresh) {
+        UserStickerTemplatesManager.getDiscoveryTemplates(
+            context = context,
+            section = "Trending",
+            categoryFilter = selectedCategory,
+            searchQuery = searchQuery
+        )
+    }
+
+    val popularTemplates = remember(selectedCategory, searchQuery, templatesRefresh) {
+        UserStickerTemplatesManager.getDiscoveryTemplates(
+            context = context,
+            section = "Popular",
+            categoryFilter = selectedCategory,
+            searchQuery = searchQuery
+        )
+    }
+
+    val newestTemplates = remember(selectedCategory, searchQuery, templatesRefresh) {
+        UserStickerTemplatesManager.getDiscoveryTemplates(
+            context = context,
+            section = "Newest",
+            categoryFilter = selectedCategory,
+            searchQuery = searchQuery
+        )
+    }
+
+    val categories = TemplateCategories.CATEGORIES_LIST
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        // App Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text("Sticker Craft", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Design & Create Custom Stickers", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Working Search Bar (Home Search requirement)
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Search templates by name, category or creator...") },
+            leadingIcon = { Text("🔍", fontSize = 18.sp) },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }) {
+                        Text("✕", fontSize = 16.sp, color = Color.Gray)
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(16.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color(0xFFFF1744),
+                unfocusedBorderColor = Color(0xFFE0E0E0)
+            )
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        // CREATE PROJECT Primary Action Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onCreateProject() },
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFF1744))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("➕ CREATE PROJECT", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(Modifier.height(4.dp))
+                    Text("Start with a blank canvas or import a photo", fontSize = 12.sp, color = Color.White.copy(alpha = 0.85f))
+                }
+                Text("🎨", fontSize = 28.sp)
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // 🏷️ CATEGORIES SECTION
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text("🏷️ Categories", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Browse templates by category", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+            TextButton(onClick = onSeeAllTemplates) {
+                Text("SEE ALL →", fontWeight = FontWeight.Bold, color = Color(0xFFFF1744))
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Category Filter Chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            categories.forEach { cat ->
+                FilterChip(
+                    selected = selectedCategory == cat,
+                    onClick = { selectedCategory = cat },
+                    label = { Text(cat, fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                    shape = RoundedCornerShape(20.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFFFF1744),
+                        selectedLabelColor = Color.White,
+                        containerColor = Color(0xFFF5F5F7),
+                        labelColor = Color.DarkGray
+                    )
+                )
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        if (searchQuery.isNotBlank()) {
+            // Search Results Section
+            val searchResults = trendingTemplates
+            Text("🔍 Search Results (${searchResults.size})", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+
+            if (searchResults.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F5))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🔍 No templates found", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text("No templates match '$searchQuery'.", style = MaterialTheme.typography.bodySmall, color = Color.Gray, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedButton(onClick = { searchQuery = "" }) {
+                            Text("Clear Search")
+                        }
+                    }
+                }
+            } else {
+                TemplateGrid4Columns(
+                    templates = searchResults,
+                    onTemplateClick = { previewTemplate = it }
+                )
+            }
+        } else {
+            // 👥 FEATURED & TOP CREATORS SECTION
+            val topCreators = remember(templatesRefresh) {
+                UserStickerTemplatesManager.getTopCreators(context)
+            }
+            var selectedCreatorName by remember { mutableStateOf<String?>(null) }
+
+            if (topCreators.isNotEmpty()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("👥 Featured Creators", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text("Top sticker artists & community rankings", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    LazyRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        itemsIndexed(topCreators) { index, creator ->
+                            val rankBadge = when (index) {
+                                0 -> "🏆 #1"
+                                1 -> "🥈 #2"
+                                2 -> "🥉 #3"
+                                else -> "#${index + 1}"
+                            }
+
+                            Card(
+                                modifier = Modifier
+                                    .width(135.dp)
+                                    .clickable { selectedCreatorName = creator.name },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(rankBadge, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF1744))
+                                    Spacer(Modifier.height(4.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .background(Color(0xFFFFF0F3), CircleShape)
+                                            .border(2.dp, Color(0xFFFF1744), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(creator.avatar, fontSize = 22.sp)
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        creator.name,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        creator.handle,
+                                        fontSize = 10.sp,
+                                        color = Color.Gray,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        "📥 ${creator.totalUses} uses",
+                                        fontSize = 9.sp,
+                                        color = Color.DarkGray,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(24.dp))
+
+                selectedCreatorName?.let { name ->
+                    CreatorProfileDialog(
+                        creatorName = name,
+                        onDismiss = { selectedCreatorName = null },
+                        onUseTemplate = { selected ->
+                            selectedCreatorName = null
+                            onSelectTemplate(selected)
+                        }
+                    )
+                }
+            }
+
+            // 1. 🔥 TRENDING TEMPLATES SECTION
+            TemplateHomeSection(
+                title = "🔥 Trending Templates",
+                subtitle = "Highest recent user engagement",
+                templates = trendingTemplates,
+                onSeeAll = onSeeAllTemplates,
+                onTemplateClick = { previewTemplate = it }
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            // 2. ⭐ POPULAR TEMPLATES SECTION
+            TemplateHomeSection(
+                title = "⭐ Popular Templates",
+                subtitle = "Most frequently used community templates",
+                templates = popularTemplates,
+                onSeeAll = onSeeAllTemplates,
+                onTemplateClick = { previewTemplate = it }
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            // 3. ✨ NEWEST TEMPLATES SECTION
+            TemplateHomeSection(
+                title = "✨ Newest Templates",
+                subtitle = "Recently published community templates",
+                templates = newestTemplates,
+                onSeeAll = onSeeAllTemplates,
+                onTemplateClick = { previewTemplate = it }
+            )
+        }
+    }
+
+    // Separate Template Preview Screen Dialog
+    previewTemplate?.let { template ->
+        TemplatePreviewDialog(
+            template = template,
+            onDismiss = { previewTemplate = null },
+            onUseTemplate = { selected ->
+                previewTemplate = null
+                onSelectTemplate(selected)
+            }
+        )
+    }
+}
+
+@Composable
+private fun TemplateHomeSection(
+    title: String,
+    subtitle: String,
+    templates: List<UserStickerTemplate>,
+    onSeeAll: () -> Unit,
+    onTemplateClick: (UserStickerTemplate) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            }
+            TextButton(onClick = onSeeAll) {
+                Text("SEE ALL →", fontWeight = FontWeight.Bold, color = Color(0xFFFF1744))
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        if (templates.isEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F5))
+            ) {
+                Text("No templates in this section.", modifier = Modifier.padding(16.dp), color = Color.Gray, fontSize = 12.sp)
+            }
+        } else {
+            TemplateGrid4Columns(
+                templates = templates.take(4),
+                onTemplateClick = onTemplateClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun TemplateGrid4Columns(
+    templates: List<UserStickerTemplate>,
+    onTemplateClick: (UserStickerTemplate) -> Unit
+) {
+    templates.chunked(4).forEach { rowTemplates ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            rowTemplates.forEach { template ->
+                key(template.id) {
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onTemplateClick(template) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val previewBitmap = remember(template.previewPath) {
+                                if (File(template.previewPath).exists()) {
+                                    BitmapFactory.decodeFile(template.previewPath)
+                                } else null
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFFF8F8F8)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Checkerboard(Modifier.matchParentSize())
+                                if (previewBitmap != null) {
+                                    Image(
+                                        bitmap = previewBitmap.asImageBitmap(),
+                                        contentDescription = template.name,
+                                        contentScale = ContentScale.Fit,
+                                        modifier = Modifier.fillMaxSize().padding(4.dp)
+                                    )
+                                } else {
+                                    Text("🎨", fontSize = 16.sp)
+                                }
+                            }
+
+                            Spacer(Modifier.height(4.dp))
+
+                            Text(
+                                template.name,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            Text(
+                                "by @${template.creatorName}",
+                                fontSize = 8.sp,
+                                color = Color.Gray,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+            repeat(4 - rowTemplates.size) {
+                Spacer(Modifier.weight(1f))
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+// =====================================
 // CREATE MENU
-
 // =====================================
-
-
 
 private fun isNetworkAvailable(context: Context): Boolean {
     val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
@@ -2963,38 +3314,332 @@ private fun generateLocalStickerBitmap(
 
 @Composable
 private fun CreateStickerMenu(
+    onCreateProject: () -> Unit,
+    onMyProjects: () -> Unit,
     onRemoveBackground: () -> Unit,
     onEditSticker: () -> Unit,
-    onTemplates: () -> Unit = {}
+    onTemplates: () -> Unit,
+    onTextSticker: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
     ) {
-        Text("Create Sticker", style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.height(8.dp))
-        Text("Choose how you want to create your sticker.")
+        Text("Create & Edit", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        Text("Choose a tool to start creating custom stickers.", color = Color.Gray)
         Spacer(Modifier.height(18.dp))
 
-        CreateOptionCard(
-            icon = "✂️",
-            title = "Remove BG",
-            subtitle = "Cut out the subject and make a sticker.",
-            onClick = onRemoveBackground
+        // Top Banner Row: CREATE PROJECT & MY PROJECTS (Task 3 & 4 requirements)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onCreateProject() },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFF1744))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text("🎨", fontSize = 28.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("CREATE PROJECT", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                    Text("Start new canvas", fontSize = 11.sp, color = Color.White.copy(0.85f))
+                }
+            }
+
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onMyProjects() },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2E7D32))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.Start
+                ) {
+                    Text("📁", fontSize = 28.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Text("MY PROJECTS", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                    Text("Saved creations", fontSize = 11.sp, color = Color.White.copy(0.85f))
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+        Text("Creation Tools", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(12.dp))
+
+        // Tools Grid (Task 3 requirement)
+        val tools = listOf(
+            Triple("✂️ Remove BG", "Cut out subject from photo automatically", onRemoveBackground),
+            Triple("🖼️ Edit Photo", "Open photo in full editor with layers", onEditSticker),
+            Triple("🎨 Templates", "Ready-made sticker designs", onTemplates),
+            Triple("📝 Text Sticker", "Create custom styled text stickers", onTextSticker)
         )
-        Spacer(Modifier.height(10.dp))
-        CreateOptionCard(
-            icon = "🖼️",
-            title = "Edit My Sticker",
-            subtitle = "Choose a photo, edit it, and save as PNG.",
-            onClick = onEditSticker
-        )
-        Spacer(Modifier.height(10.dp))
-        CreateOptionCard(
-            icon = "🎨",
-            title = "Templates",
-            subtitle = "Choose from ready-made sticker designs and customize.",
-            onClick = onTemplates
+
+        tools.chunked(2).forEach { rowTools ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                rowTools.forEach { (title, subtitle, action) ->
+                    Card(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { action() },
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F5))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(title, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Spacer(Modifier.height(4.dp))
+                            Text(subtitle, fontSize = 11.sp, color = Color.DarkGray, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+        }
+    }
+}
+
+@Composable
+private fun MyProjectsScreen(
+    onContinueEditTemplate: (UserStickerTemplate) -> Unit,
+    onEditStickerFile: (File) -> Unit,
+    onBack: () -> Unit
+) {
+    val context = LocalContext.current
+    var refreshKey by remember { mutableIntStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var previewProjectTarget by remember { mutableStateOf<UserStickerTemplate?>(null) }
+
+    val userTemplates = remember(refreshKey) {
+        UserStickerTemplatesManager.getMyTemplates(context)
+    }
+
+    val stickerFiles = remember(refreshKey) {
+        loadMyStickerFiles(context)
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Text("←", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(8.dp))
+            Text("📁 My Projects", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                label = { Text("Editable Projects (${userTemplates.size})") },
+                modifier = Modifier.weight(1f),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color(0xFFFF1744),
+                    selectedLabelColor = Color.White
+                )
+            )
+
+            FilterChip(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                label = { Text("Saved Stickers (${stickerFiles.size})") },
+                modifier = Modifier.weight(1f),
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color(0xFFFF1744),
+                    selectedLabelColor = Color.White
+                )
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        if (selectedTab == 0) {
+            if (userTemplates.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F5))
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("📁 No Saved Projects", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text("Save your work as a template in the editor to continue editing later.", style = MaterialTheme.typography.bodySmall, color = Color.Gray, textAlign = TextAlign.Center)
+                    }
+                }
+            } else {
+                userTemplates.chunked(2).forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowItems.forEach { template ->
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { previewProjectTarget = template },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+                            ) {
+                                Column(horizontalAlignment = Alignment.Start) {
+                                    val previewBmp = remember(template.previewPath) {
+                                        if (File(template.previewPath).exists()) BitmapFactory.decodeFile(template.previewPath) else null
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1f)
+                                            .background(Color(0xFFF8F8F8))
+                                            .clickable { previewProjectTarget = template },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Checkerboard(Modifier.matchParentSize())
+                                        if (previewBmp != null) {
+                                            Image(
+                                                bitmap = previewBmp.asImageBitmap(),
+                                                contentDescription = template.name,
+                                                contentScale = ContentScale.Fit,
+                                                modifier = Modifier.fillMaxSize().padding(8.dp)
+                                            )
+                                        } else {
+                                            Text("🎨", fontSize = 32.sp)
+                                        }
+                                    }
+
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(template.name, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Spacer(Modifier.height(2.dp))
+                                        Text("${template.layers.size} Layers", fontSize = 11.sp, color = Color.Gray)
+                                        Spacer(Modifier.height(8.dp))
+                                        Button(
+                                            onClick = { previewProjectTarget = template },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744)),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("👁️ Preview Project", fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (rowItems.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+            }
+        } else {
+            if (stickerFiles.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F5))
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("🖼️ No Saved Stickers", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text("Create and save stickers to view them here.", style = MaterialTheme.typography.bodySmall, color = Color.Gray, textAlign = TextAlign.Center)
+                    }
+                }
+            } else {
+                stickerFiles.chunked(2).forEach { rowFiles ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        rowFiles.forEach { file ->
+                            Card(
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White),
+                                border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+                            ) {
+                                Column(horizontalAlignment = Alignment.Start) {
+                                    val bitmap = remember(file.absolutePath) { BitmapFactory.decodeFile(file.absolutePath) }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .aspectRatio(1f)
+                                            .background(Color(0xFFF8F8F8)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Checkerboard(Modifier.matchParentSize())
+                                        if (bitmap != null) {
+                                            Image(
+                                                bitmap = bitmap.asImageBitmap(),
+                                                contentDescription = file.name,
+                                                contentScale = ContentScale.Fit,
+                                                modifier = Modifier.fillMaxSize().padding(8.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(file.nameWithoutExtension, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Spacer(Modifier.height(8.dp))
+                                        Button(
+                                            onClick = { onEditStickerFile(file) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744)),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("✏️ Edit in Editor", fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (rowFiles.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                }
+            }
+        }
+    }
+
+    // Template Preview Screen Dialog for My Projects
+    previewProjectTarget?.let { template ->
+        TemplatePreviewDialog(
+            template = template,
+            onDismiss = { previewProjectTarget = null },
+            onUseTemplate = { selected ->
+                previewProjectTarget = null
+                onContinueEditTemplate(selected)
+            }
         )
     }
 }
@@ -3102,9 +3747,11 @@ private fun calculateVisibleBounds(bitmap: Bitmap): RectF {
     }
 }
 
-private class StickerEditorLayer(val name: String, var bitmap: Bitmap) {
+private class StickerEditorLayer(var name: String, var bitmap: Bitmap) {
 
     var visible by mutableStateOf(true)
+
+    var isLocked by mutableStateOf(false)
 
     var scale by mutableFloatStateOf(1f)
 
@@ -3118,13 +3765,32 @@ private class StickerEditorLayer(val name: String, var bitmap: Bitmap) {
 
     var visibleBounds by mutableStateOf(calculateVisibleBounds(bitmap))
 
+    // Speech Bubble Editable Properties
+    var isSpeechBubble by mutableStateOf(false)
+
+    var bubbleStyle by mutableStateOf("Classic Comic Bubble")
+
+    var bubbleText by mutableStateOf("")
+
+    var bubbleTextColorIndex by mutableIntStateOf(1)
+
+    var bubbleFillColorIndex by mutableIntStateOf(2)
+
+    var bubbleStrokeColorIndex by mutableIntStateOf(1)
+
+    var bubbleTextSizeSp by mutableFloatStateOf(32f)
+
+    var bubbleOutlineThicknessSp by mutableFloatStateOf(10f)
+
+    var bubbleOpacityAlpha by mutableFloatStateOf(1.0f)
+
+    var bubbleTailDirection by mutableStateOf("Bottom Left")
+
     fun updateVisibleBounds() {
         visibleBounds = calculateVisibleBounds(bitmap)
     }
 
 }
-
-
 
 private data class StickerEditorHistoryLayer(
 
@@ -3133,6 +3799,8 @@ private data class StickerEditorHistoryLayer(
     val bitmap: Bitmap,
 
     val visible: Boolean,
+
+    val isLocked: Boolean = false,
 
     val scale: Float,
 
@@ -3498,6 +4166,554 @@ private fun createShapeBitmap(shapeType: String, size: Int, color: Int): Bitmap 
     return bmp
 }
 
+private fun mergeSelectedLayers(
+    layers: androidx.compose.runtime.snapshots.SnapshotStateList<StickerEditorLayer>,
+    selectedIndicesList: List<Int>
+) {
+    if (selectedIndicesList.size < 2) return
+    val sortedIndices = selectedIndicesList.sorted()
+    val targetWidth = 1024
+    val targetHeight = 1024
+
+    val mergedBmp = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(mergedBmp)
+
+    sortedIndices.forEach { idx ->
+        if (idx in 0..layers.lastIndex) {
+            val layer = layers[idx]
+            if (!layer.bitmap.isRecycled) {
+                canvas.save()
+                canvas.translate(targetWidth / 2f + layer.offsetX, targetHeight / 2f + layer.offsetY)
+                canvas.rotate(layer.rotation)
+                canvas.scale(layer.scale, layer.scale)
+
+                val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+                    alpha = (layer.alpha * 255).toInt().coerceIn(0, 255)
+                }
+                canvas.drawBitmap(
+                    layer.bitmap,
+                    -layer.bitmap.width / 2f,
+                    -layer.bitmap.height / 2f,
+                    paint
+                )
+                canvas.restore()
+            }
+        }
+    }
+
+    val firstIndex = sortedIndices.first()
+    for (i in sortedIndices.sortedDescending()) {
+        if (i in 0..layers.lastIndex) {
+            layers.removeAt(i)
+        }
+    }
+
+    val newLayer = StickerEditorLayer("Merged Layer", mergedBmp)
+    val insertPos = firstIndex.coerceIn(0, layers.size)
+    layers.add(insertPos, newLayer)
+}
+
+@Composable
+private fun RightSideLayerPanel(
+    layers: List<StickerEditorLayer>,
+    activeLayer: Int,
+    selectedForMerge: androidx.compose.runtime.snapshots.SnapshotStateList<Int>,
+    onSelectLayer: (Int) -> Unit,
+    onToggleVisibility: (Int) -> Unit,
+    onToggleLock: (Int) -> Unit,
+    onMoveUp: (Int) -> Unit,
+    onMoveDown: (Int) -> Unit,
+    onDuplicate: (Int) -> Unit,
+    onDelete: (Int) -> Unit,
+    onRename: (Int) -> Unit,
+    onMergeSelected: () -> Unit,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E22)),
+        border = BorderStroke(1.dp, Color(0xFF383840))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("🥞 Layers (${layers.size})", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                IconButton(onClick = onClose, modifier = Modifier.size(20.dp)) {
+                    Text("✕", color = Color.LightGray, fontSize = 11.sp)
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            if (selectedForMerge.size >= 2) {
+                Button(
+                    onClick = onMergeSelected,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744)),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().height(26.dp)
+                ) {
+                    Text("🧩 Merge (${selectedForMerge.size})", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                for (idx in layers.lastIndex downTo 0) {
+                    val layer = layers[idx]
+                    val isSel = idx == activeLayer
+                    val isCheckedForMerge = selectedForMerge.contains(idx)
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectLayer(idx) },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSel) Color(0xFF383840) else Color(0xFF26262B)
+                        ),
+                        border = BorderStroke(if (isSel) 1.5.dp else 0.dp, if (isSel) Color(0xFFFF1744) else Color.Transparent)
+                    ) {
+                        Column(modifier = Modifier.padding(4.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isCheckedForMerge,
+                                    onCheckedChange = { checked ->
+                                        if (checked) {
+                                            if (!selectedForMerge.contains(idx)) selectedForMerge.add(idx)
+                                        } else {
+                                            selectedForMerge.remove(idx)
+                                        }
+                                    },
+                                    modifier = Modifier.size(18.dp)
+                                )
+
+                                Spacer(Modifier.width(2.dp))
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color(0xFF151518)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Checkerboard(Modifier.matchParentSize())
+                                    if (!layer.bitmap.isRecycled) {
+                                        Image(
+                                            bitmap = layer.bitmap.asImageBitmap(),
+                                            contentDescription = layer.name,
+                                            contentScale = ContentScale.Fit,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.width(4.dp))
+
+                                Text(
+                                    layer.name,
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+
+                            Spacer(Modifier.height(4.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    if (layer.visible) "👁️" else "🙈",
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.clickable { onToggleVisibility(idx) }
+                                )
+
+                                Text(
+                                    if (layer.isLocked) "🔒" else "🔓",
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.clickable { onToggleLock(idx) }
+                                )
+
+                                if (idx < layers.lastIndex) {
+                                    Text("▲", color = Color.LightGray, fontSize = 9.sp, modifier = Modifier.clickable { onMoveUp(idx) })
+                                }
+
+                                if (idx > 0) {
+                                    Text("▼", color = Color.LightGray, fontSize = 9.sp, modifier = Modifier.clickable { onMoveDown(idx) })
+                                }
+
+                                Text("📝", fontSize = 9.sp, modifier = Modifier.clickable { onRename(idx) })
+
+                                Text("📋", fontSize = 9.sp, modifier = Modifier.clickable { onDuplicate(idx) })
+
+                                Text("🗑", color = Color.Red, fontSize = 9.sp, modifier = Modifier.clickable { onDelete(idx) })
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun createSpeechBubbleBitmap(
+    bubbleStyle: String,
+    text: String,
+    textColorInt: Int,
+    textSizeSp: Float,
+    fillColorInt: Int,
+    strokeColorInt: Int,
+    strokeThicknessPx: Float = 10f,
+    opacityAlpha: Float = 1.0f,
+    tailDirection: String = "Bottom Left",
+    bitmapSize: Int = 512
+): Bitmap {
+    val bitmap = Bitmap.createBitmap(bitmapSize, bitmapSize, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val logicalSize = 512f
+    val scale = bitmapSize.toFloat() / logicalSize
+    canvas.scale(scale, scale)
+
+    val rect = RectF(36f, 36f, 476f, 400f)
+
+    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = fillColorInt
+        alpha = (opacityAlpha * 255).toInt().coerceIn(0, 255)
+    }
+
+    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = strokeThicknessPx
+        color = strokeColorInt
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        alpha = (opacityAlpha * 255).toInt().coerceIn(0, 255)
+    }
+
+    val whiteBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = strokeThicknessPx + 18f
+        color = AndroidColor.WHITE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        alpha = (opacityAlpha * 255).toInt().coerceIn(0, 255)
+    }
+
+    val bodyPath = android.graphics.Path()
+    val tailPath = android.graphics.Path()
+
+    fun addTail(p: android.graphics.Path, r: RectF) {
+        when (tailDirection) {
+            "Bottom Left" -> {
+                p.moveTo(r.left + 80f, r.bottom - 4f)
+                p.lineTo(r.left + 30f, r.bottom + 55f)
+                p.lineTo(r.left + 150f, r.bottom - 4f)
+            }
+            "Bottom Right" -> {
+                p.moveTo(r.right - 150f, r.bottom - 4f)
+                p.lineTo(r.right - 30f, r.bottom + 55f)
+                p.lineTo(r.right - 80f, r.bottom - 4f)
+            }
+            "Top Left" -> {
+                p.moveTo(r.left + 80f, r.top + 4f)
+                p.lineTo(r.left + 30f, r.top - 30f)
+                p.lineTo(r.left + 150f, r.top + 4f)
+            }
+            "Top Right" -> {
+                p.moveTo(r.right - 150f, r.top + 4f)
+                p.lineTo(r.right - 30f, r.top - 30f)
+                p.lineTo(r.right - 80f, r.top + 4f)
+            }
+        }
+        p.close()
+    }
+
+    when (bubbleStyle) {
+        "Classic Comic Bubble", "Rounded Rectangle", "Rounded Rectangle Speech Bubble" -> {
+            bodyPath.addRoundRect(rect, 44f, 44f, android.graphics.Path.Direction.CW)
+            addTail(tailPath, rect)
+        }
+        "Cloud Thought Bubble", "Cloud / Thought", "Cloud / Thought Bubble", "Thought Bubble" -> {
+            bodyPath.addOval(RectF(70f, 40f, 442f, 360f), android.graphics.Path.Direction.CW)
+            bodyPath.addCircle(120f, 130f, 65f, android.graphics.Path.Direction.CW)
+            bodyPath.addCircle(390f, 130f, 65f, android.graphics.Path.Direction.CW)
+            bodyPath.addCircle(150f, 290f, 60f, android.graphics.Path.Direction.CW)
+            bodyPath.addCircle(360f, 290f, 60f, android.graphics.Path.Direction.CW)
+            bodyPath.addCircle(256f, 80f, 70f, android.graphics.Path.Direction.CW)
+
+            val dot1 = android.graphics.Path().apply { addCircle(110f, 395f, 22f, android.graphics.Path.Direction.CW) }
+            val dot2 = android.graphics.Path().apply { addCircle(75f, 435f, 15f, android.graphics.Path.Direction.CW) }
+            val dot3 = android.graphics.Path().apply { addCircle(50f, 465f, 9f, android.graphics.Path.Direction.CW) }
+
+            canvas.drawPath(dot1, whiteBorderPaint)
+            canvas.drawPath(dot1, fillPaint)
+            canvas.drawPath(dot1, strokePaint)
+            canvas.drawPath(dot2, whiteBorderPaint)
+            canvas.drawPath(dot2, fillPaint)
+            canvas.drawPath(dot2, strokePaint)
+            canvas.drawPath(dot3, whiteBorderPaint)
+            canvas.drawPath(dot3, fillPaint)
+            canvas.drawPath(dot3, strokePaint)
+        }
+        "Comic Explosion" -> {
+            val cx = rect.centerX()
+            val cy = rect.centerY()
+            val rx = rect.width() / 2f
+            val ry = rect.height() / 2f
+            val points = 16
+            for (i in 0 until points) {
+                val angle = Math.toRadians(i * 360.0 / points)
+                val rX = if (i % 2 == 0) rx else rx * 0.70f
+                val rY = if (i % 2 == 0) ry else ry * 0.70f
+                val px = cx + (rX * Math.cos(angle)).toFloat()
+                val py = cy + (rY * Math.sin(angle)).toFloat()
+                if (i == 0) bodyPath.moveTo(px, py) else bodyPath.lineTo(px, py)
+            }
+            bodyPath.close()
+        }
+        "Shout Bubble", "Spiky Burst", "Spiky Speech Bubble" -> {
+            val cx = rect.centerX()
+            val cy = rect.centerY()
+            val rx = rect.width() / 2f
+            val ry = rect.height() / 2f
+            val points = 24
+            for (i in 0 until points) {
+                val angle = Math.toRadians(i * 360.0 / points)
+                val rX = if (i % 2 == 0) rx else rx * 0.55f
+                val rY = if (i % 2 == 0) ry else ry * 0.55f
+                val px = cx + (rX * Math.cos(angle)).toFloat()
+                val py = cy + (rY * Math.sin(angle)).toFloat()
+                if (i == 0) bodyPath.moveTo(px, py) else bodyPath.lineTo(px, py)
+            }
+            bodyPath.close()
+        }
+        "Oval Dialogue Bubble", "Oval Speech Bubble" -> {
+            bodyPath.addOval(rect, android.graphics.Path.Direction.CW)
+
+            val dot1 = android.graphics.Path().apply { addCircle(110f, 395f, 22f, android.graphics.Path.Direction.CW) }
+            val dot2 = android.graphics.Path().apply { addCircle(75f, 435f, 15f, android.graphics.Path.Direction.CW) }
+            val dot3 = android.graphics.Path().apply { addCircle(50f, 465f, 9f, android.graphics.Path.Direction.CW) }
+
+            canvas.drawPath(dot1, whiteBorderPaint)
+            canvas.drawPath(dot1, fillPaint)
+            canvas.drawPath(dot1, strokePaint)
+            canvas.drawPath(dot2, whiteBorderPaint)
+            canvas.drawPath(dot2, fillPaint)
+            canvas.drawPath(dot2, strokePaint)
+            canvas.drawPath(dot3, whiteBorderPaint)
+            canvas.drawPath(dot3, fillPaint)
+            canvas.drawPath(dot3, strokePaint)
+        }
+        "Heart Bubble", "Heart Speech Bubble" -> {
+            val cx = rect.centerX()
+            val cy = rect.centerY() - 10f
+            val r = rect.width() / 2.2f
+            bodyPath.moveTo(cx, cy + r)
+            bodyPath.cubicTo(cx - r * 1.2f, cy + r * 0.2f, cx - r * 1.2f, cy - r * 0.8f, cx, cy - r * 0.3f)
+            bodyPath.cubicTo(cx + r * 1.2f, cy - r * 0.8f, cx + r * 1.2f, cy + r * 0.2f, cx, cy + r)
+            bodyPath.close()
+            addTail(tailPath, rect)
+        }
+        "Pixel Bubble", "Pixel Speech Bubble" -> {
+            bodyPath.addRect(rect.left + 16f, rect.top + 16f, rect.right - 16f, rect.bottom - 16f, android.graphics.Path.Direction.CW)
+            tailPath.addRect(rect.left + 60f, rect.bottom - 16f, rect.left + 110f, rect.bottom, android.graphics.Path.Direction.CW)
+            tailPath.addRect(rect.left + 40f, rect.bottom, rect.left + 90f, rect.bottom + 25f, android.graphics.Path.Direction.CW)
+            tailPath.addRect(rect.left + 20f, rect.bottom + 25f, rect.left + 60f, rect.bottom + 50f, android.graphics.Path.Direction.CW)
+        }
+        "Double Dialogue Bubble", "Double Bubble", "Double Speech Bubble" -> {
+            val leftRect = RectF(rect.left, rect.top + 20f, rect.right - 100f, rect.bottom - 20f)
+            val rightRect = RectF(rect.right - 150f, rect.top, rect.right, rect.bottom - 60f)
+
+            bodyPath.addRoundRect(leftRect, 36f, 36f, android.graphics.Path.Direction.CW)
+            val leftTail = android.graphics.Path().apply {
+                moveTo(leftRect.left + 60f, leftRect.bottom - 4f)
+                lineTo(leftRect.left + 20f, leftRect.bottom + 45f)
+                lineTo(leftRect.left + 120f, leftRect.bottom - 4f)
+                close()
+            }
+            bodyPath.op(leftTail, android.graphics.Path.Op.UNION)
+
+            val rightBubble = android.graphics.Path().apply {
+                addRoundRect(rightRect, 28f, 28f, android.graphics.Path.Direction.CW)
+                val rt = android.graphics.Path().apply {
+                    moveTo(rightRect.right - 50f, rightRect.bottom - 4f)
+                    lineTo(rightRect.right - 15f, rightRect.bottom + 35f)
+                    lineTo(rightRect.right - 90f, rightRect.bottom - 4f)
+                    close()
+                }
+                op(rt, android.graphics.Path.Op.UNION)
+            }
+            bodyPath.op(rightBubble, android.graphics.Path.Op.UNION)
+        }
+        "Ribbon Bubble", "Ribbon Speech Bubble" -> {
+            bodyPath.addRect(rect.left + 40f, rect.top + 20f, rect.right - 40f, rect.bottom - 20f, android.graphics.Path.Direction.CW)
+            val leftRibbon = android.graphics.Path().apply {
+                moveTo(rect.left + 40f, rect.top + 20f)
+                lineTo(rect.left, rect.top + 40f)
+                lineTo(rect.left + 25f, rect.centerY())
+                lineTo(rect.left, rect.bottom - 20f)
+                lineTo(rect.left + 40f, rect.bottom - 20f)
+                close()
+            }
+            val rightRibbon = android.graphics.Path().apply {
+                moveTo(rect.right - 40f, rect.top + 20f)
+                lineTo(rect.right, rect.top + 40f)
+                lineTo(rect.right - 25f, rect.centerY())
+                lineTo(rect.right, rect.bottom - 20f)
+                lineTo(rect.right - 40f, rect.bottom - 20f)
+                close()
+            }
+            bodyPath.op(leftRibbon, android.graphics.Path.Op.UNION)
+            bodyPath.op(rightRibbon, android.graphics.Path.Op.UNION)
+            addTail(tailPath, rect)
+        }
+        "Question Bubble" -> {
+            bodyPath.addOval(rect, android.graphics.Path.Direction.CW)
+            addTail(tailPath, rect)
+        }
+        "Exclamation Bubble" -> {
+            bodyPath.addRoundRect(rect, 44f, 44f, android.graphics.Path.Direction.CW)
+
+            val dot1 = android.graphics.Path().apply { addCircle(110f, 395f, 22f, android.graphics.Path.Direction.CW) }
+            val dot2 = android.graphics.Path().apply { addCircle(75f, 435f, 15f, android.graphics.Path.Direction.CW) }
+            val dot3 = android.graphics.Path().apply { addCircle(50f, 465f, 9f, android.graphics.Path.Direction.CW) }
+
+            canvas.drawPath(dot1, whiteBorderPaint)
+            canvas.drawPath(dot1, fillPaint)
+            canvas.drawPath(dot1, strokePaint)
+            canvas.drawPath(dot2, whiteBorderPaint)
+            canvas.drawPath(dot2, fillPaint)
+            canvas.drawPath(dot2, strokePaint)
+            canvas.drawPath(dot3, whiteBorderPaint)
+            canvas.drawPath(dot3, fillPaint)
+            canvas.drawPath(dot3, strokePaint)
+        }
+        "Emotional Reaction Bubble" -> {
+            bodyPath.addOval(rect, android.graphics.Path.Direction.CW)
+            addTail(tailPath, rect)
+        }
+        else -> {
+            bodyPath.addRoundRect(rect, 36f, 36f, android.graphics.Path.Direction.CW)
+            addTail(tailPath, rect)
+        }
+    }
+
+    val finalPath = android.graphics.Path(bodyPath)
+    if (!tailPath.isEmpty) {
+        finalPath.op(tailPath, android.graphics.Path.Op.UNION)
+    }
+
+    // Shadow offset path
+    val shadowPath = android.graphics.Path()
+    val shadowMatrix = android.graphics.Matrix().apply { postTranslate(6f, 6f) }
+    finalPath.transform(shadowMatrix, shadowPath)
+
+    val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        color = AndroidColor.parseColor("#33000000")
+        alpha = (opacityAlpha * 0.25f * 255).toInt().coerceIn(0, 255)
+    }
+
+    // 1. Draw Shadow
+    canvas.drawPath(shadowPath, shadowPaint)
+
+    // 2. Draw Thick White Sticker Border
+    canvas.drawPath(finalPath, whiteBorderPaint)
+
+    // 3. Draw Interior Fill
+    canvas.drawPath(finalPath, fillPaint)
+
+    // 4. Draw Inner Black Comic Outline
+    canvas.drawPath(finalPath, strokePaint)
+
+    // Decorative Comic Accents
+    if (bubbleStyle == "Comic Explosion") {
+        val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeWidth = 6f
+            color = AndroidColor.parseColor("#FFD600")
+            strokeCap = Paint.Cap.ROUND
+        }
+        canvas.drawLine(rect.right - 60f, rect.top + 10f, rect.right - 30f, rect.top - 15f, accentPaint)
+        canvas.drawLine(rect.right - 40f, rect.top + 20f, rect.right - 10f, rect.top + 5f, accentPaint)
+        canvas.drawLine(rect.right - 20f, rect.top + 35f, rect.right + 10f, rect.top + 30f, accentPaint)
+    }
+
+    if (bubbleStyle == "Question Bubble") {
+        val qPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = AndroidColor.parseColor("#E53935") // Red
+            textSize = 52f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            alpha = (opacityAlpha * 255).toInt().coerceIn(0, 255)
+        }
+        canvas.drawText("??", rect.right - 10f, rect.bottom + 15f, qPaint)
+    }
+
+    if (bubbleStyle == "Exclamation Bubble") {
+        val ePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = AndroidColor.parseColor("#E53935") // Red
+            textSize = 52f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            alpha = (opacityAlpha * 255).toInt().coerceIn(0, 255)
+        }
+        canvas.drawText("!!", rect.right - 10f, rect.bottom + 15f, ePaint)
+    }
+
+    if (bubbleStyle == "Emotional Reaction Bubble") {
+        val heartPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = AndroidColor.parseColor("#EC407A") // Pink
+            textSize = 36f
+            alpha = (opacityAlpha * 255).toInt().coerceIn(0, 255)
+        }
+        canvas.drawText("💕", rect.right - 10f, rect.bottom + 15f, heartPaint)
+    }
+
+    if (text.isNotBlank()) {
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = textColorInt
+            textSize = textSizeSp * 1.25f
+            textAlign = Paint.Align.CENTER
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            alpha = (opacityAlpha * 255).toInt().coerceIn(0, 255)
+        }
+
+        val lines = text.split("\n")
+        val lineSpacing = textPaint.textSize * 1.25f
+        val startY = rect.centerY() - ((lines.size - 1) * lineSpacing / 2f) + (textPaint.textSize / 3f)
+
+        lines.forEachIndexed { idx, line ->
+            canvas.drawText(line, rect.centerX(), startY + (idx * lineSpacing), textPaint)
+        }
+    }
+
+    return bitmap
+}
+
 private fun drawStrokeOnBitmap(
     bitmap: Bitmap,
     prevPos: Offset,
@@ -3522,7 +4738,13 @@ private fun drawStrokeOnBitmap(
         canvasSize.height / bitmap.height.coerceAtLeast(1).toFloat()
     )
 
-    val effectiveScale = (fitScale * layer.scale).coerceAtLeast(0.01f)
+    val scaleValue = if (kotlin.math.abs(layer.scale) < 0.001f) {
+        if (layer.scale >= 0f) 0.001f else -0.001f
+    } else {
+        layer.scale
+    }
+
+    val effectiveScale = (fitScale * kotlin.math.abs(scaleValue)).coerceAtLeast(0.001f)
 
     val canvas = Canvas(bitmap)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -3538,19 +4760,28 @@ private fun drawStrokeOnBitmap(
     }
 
     fun canvasToBitmapCoords(p: Offset): Offset {
-        val dx = (p.x - centerCanvasX - layerTranslationX) / layer.scale.coerceAtLeast(0.01f)
-        val dy = (p.y - centerCanvasY - layerTranslationY) / layer.scale.coerceAtLeast(0.01f)
-        val rad = Math.toRadians(-layer.rotation.toDouble())
-        val rx = (dx * Math.cos(rad) - dy * Math.sin(rad)).toFloat()
-        val ry = (dx * Math.sin(rad) + dy * Math.cos(rad)).toFloat()
-        val bx = (rx / fitScale) + (bitmap.width / 2f)
-        val by = (ry / fitScale) + (bitmap.height / 2f)
+        val dx = p.x - centerCanvasX - layerTranslationX
+        val dy = p.y - centerCanvasY - layerTranslationY
+        val negRad = Math.toRadians(-layer.rotation.toDouble())
+        val rx = (dx * Math.cos(negRad) - dy * Math.sin(negRad)).toFloat()
+        val ry = (dx * Math.sin(negRad) + dy * Math.cos(negRad)).toFloat()
+        val unscaledX = rx / scaleValue
+        val unscaledY = ry / scaleValue
+        val bx = (unscaledX / fitScale) + (bitmap.width / 2f)
+        val by = (unscaledY / fitScale) + (bitmap.height / 2f)
         return Offset(bx, by)
     }
 
     val start = canvasToBitmapCoords(prevPos)
     val end = canvasToBitmapCoords(currentPos)
-    canvas.drawLine(start.x, start.y, end.x, end.y, paint)
+    if (start == end) {
+        val dotPaint = Paint(paint).apply {
+            style = Paint.Style.FILL
+        }
+        canvas.drawCircle(start.x, start.y, (brushSize / effectiveScale) / 2f, dotPaint)
+    } else {
+        canvas.drawLine(start.x, start.y, end.x, end.y, paint)
+    }
     layer.updateVisibleBounds()
 }
 
@@ -3580,13 +4811,21 @@ private fun findLayerAtTouch(
             canvasSize.height / bitmap.height.coerceAtLeast(1).toFloat()
         )
 
-        val dx = (p.x - centerCanvasX - layerTranslationX) / layer.scale.coerceAtLeast(0.01f)
-        val dy = (p.y - centerCanvasY - layerTranslationY) / layer.scale.coerceAtLeast(0.01f)
-        val rad = Math.toRadians(-layer.rotation.toDouble())
-        val rx = (dx * Math.cos(rad) - dy * Math.sin(rad)).toFloat()
-        val ry = (dx * Math.sin(rad) + dy * Math.cos(rad)).toFloat()
-        val bx = (rx / fitScale) + (bitmap.width / 2f)
-        val by = (ry / fitScale) + (bitmap.height / 2f)
+        val scaleValue = if (kotlin.math.abs(layer.scale) < 0.001f) {
+            if (layer.scale >= 0f) 0.001f else -0.001f
+        } else {
+            layer.scale
+        }
+
+        val dx = p.x - centerCanvasX - layerTranslationX
+        val dy = p.y - centerCanvasY - layerTranslationY
+        val negRad = Math.toRadians(-layer.rotation.toDouble())
+        val rx = (dx * Math.cos(negRad) - dy * Math.sin(negRad)).toFloat()
+        val ry = (dx * Math.sin(negRad) + dy * Math.cos(negRad)).toFloat()
+        val unscaledX = rx / scaleValue
+        val unscaledY = ry / scaleValue
+        val bx = (unscaledX / fitScale) + (bitmap.width / 2f)
+        val by = (unscaledY / fitScale) + (bitmap.height / 2f)
 
         val ix = bx.toInt()
         val iy = by.toInt()
@@ -3620,6 +4859,28 @@ private fun StickerEditorScreen(
     var currentTool by remember { mutableStateOf("Move") }
 
     var textDialog by remember { mutableStateOf(false) }
+
+    var speechBubbleDialog by remember { mutableStateOf(false) }
+
+    var editingSpeechBubbleLayer by remember { mutableStateOf<StickerEditorLayer?>(null) }
+
+    var selectedBubbleStyle by remember { mutableStateOf("Classic Speech Bubble") }
+
+    var bubbleText by remember { mutableStateOf("Hello!") }
+
+    var bubbleTextColorIndex by remember { mutableIntStateOf(1) }
+
+    var bubbleFillColorIndex by remember { mutableIntStateOf(2) }
+
+    var bubbleStrokeColorIndex by remember { mutableIntStateOf(1) }
+
+    var bubbleTextSizeSp by remember { mutableFloatStateOf(32f) }
+
+    var bubbleOutlineThicknessSp by remember { mutableFloatStateOf(10f) }
+
+    var bubbleOpacityAlpha by remember { mutableFloatStateOf(1.0f) }
+
+    var bubbleTailDirection by remember { mutableStateOf("Bottom Left") }
 
     var emojiDialog by remember { mutableStateOf(false) }
 
@@ -3675,6 +4936,14 @@ private fun StickerEditorScreen(
 
     var lastTouchPos by remember { mutableStateOf<Offset?>(null) }
 
+    var showRightLayerPanel by remember { mutableStateOf(true) }
+
+    val selectedForMerge = remember { mutableStateListOf<Int>() }
+
+    var renameLayerTargetIndex by remember { mutableStateOf<Int?>(null) }
+
+    var renameLayerInputText by remember { mutableStateOf("") }
+
     val originalBitmapsMap = remember { mutableMapOf<String, Bitmap>() }
 
 
@@ -3715,7 +4984,7 @@ private fun StickerEditorScreen(
 
     fun snapshot() {
 
-        history.add(layers.map { StickerEditorHistoryLayer(it.name, it.bitmap.copy(Bitmap.Config.ARGB_8888, true), it.visible, it.scale, it.rotation, it.offsetX, it.offsetY, it.alpha) })
+        history.add(layers.map { StickerEditorHistoryLayer(it.name, it.bitmap.copy(Bitmap.Config.ARGB_8888, true), it.visible, it.isLocked, it.scale, it.rotation, it.offsetX, it.offsetY, it.alpha) })
 
         redoHistory.clear()
 
@@ -4034,13 +5303,13 @@ private fun StickerEditorScreen(
 
                         if (history.isNotEmpty()) {
 
-                            redoHistory.add(layers.map { StickerEditorHistoryLayer(it.name, it.bitmap.copy(Bitmap.Config.ARGB_8888, true), it.visible, it.scale, it.rotation, it.offsetX, it.offsetY, it.alpha) })
+                            redoHistory.add(layers.map { StickerEditorHistoryLayer(it.name, it.bitmap.copy(Bitmap.Config.ARGB_8888, true), it.visible, it.isLocked, it.scale, it.rotation, it.offsetX, it.offsetY, it.alpha) })
 
                             val previous = history.removeAt(history.lastIndex)
 
                             layers.clear()
 
-                            previous.forEach { s -> layers.add(StickerEditorLayer(s.name, s.bitmap).also { it.visible=s.visible; it.scale=s.scale; it.rotation=s.rotation; it.offsetX=s.offsetX; it.offsetY=s.offsetY; it.alpha=s.alpha }) }
+                            previous.forEach { s -> layers.add(StickerEditorLayer(s.name, s.bitmap).also { it.visible=s.visible; it.isLocked=s.isLocked; it.scale=s.scale; it.rotation=s.rotation; it.offsetX=s.offsetX; it.offsetY=s.offsetY; it.alpha=s.alpha }) }
 
                             activeLayer = layers.lastIndex; canvasVersion++
 
@@ -4072,13 +5341,13 @@ private fun StickerEditorScreen(
 
                         if (redoHistory.isNotEmpty()) {
 
-                            history.add(layers.map { StickerEditorHistoryLayer(it.name, it.bitmap.copy(Bitmap.Config.ARGB_8888, true), it.visible, it.scale, it.rotation, it.offsetX, it.offsetY, it.alpha) })
+                            history.add(layers.map { StickerEditorHistoryLayer(it.name, it.bitmap.copy(Bitmap.Config.ARGB_8888, true), it.visible, it.isLocked, it.scale, it.rotation, it.offsetX, it.offsetY, it.alpha) })
 
                             val next = redoHistory.removeAt(redoHistory.lastIndex)
 
                             layers.clear()
 
-                            next.forEach { s -> layers.add(StickerEditorLayer(s.name, s.bitmap).also { it.visible=s.visible; it.scale=s.scale; it.rotation=s.rotation; it.offsetX=s.offsetX; it.offsetY=s.offsetY; it.alpha=s.alpha }) }
+                            next.forEach { s -> layers.add(StickerEditorLayer(s.name, s.bitmap).also { it.visible=s.visible; it.isLocked=s.isLocked; it.scale=s.scale; it.rotation=s.rotation; it.offsetX=s.offsetX; it.offsetY=s.offsetY; it.alpha=s.alpha }) }
 
                             activeLayer = layers.lastIndex; canvasVersion++
 
@@ -4332,25 +5601,39 @@ private fun StickerEditorScreen(
 
                         Spacer(Modifier.height(12.dp))
 
+                        Text("Visibility Setting:", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+                        Spacer(Modifier.height(4.dp))
+
                         Row(
 
-                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
 
-                            modifier = Modifier.clickable { isPublishedInput = !isPublishedInput }
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
 
                         ) {
 
-                            Checkbox(
+                            FilterChip(
 
-                                checked = isPublishedInput,
+                                selected = !isPublishedInput,
 
-                                onCheckedChange = { isPublishedInput = it }
+                                onClick = { isPublishedInput = false },
+
+                                label = { Text("🔒 Private (Only Me)", fontSize = 12.sp) }
 
                             )
 
-                            Spacer(Modifier.width(6.dp))
 
-                            Text("Publish to Community Templates", fontSize = 13.sp)
+
+                            FilterChip(
+
+                                selected = isPublishedInput,
+
+                                onClick = { isPublishedInput = true },
+
+                                label = { Text("🌐 Public (Community)", fontSize = 12.sp) }
+
+                            )
 
                         }
 
@@ -4498,286 +5781,273 @@ private fun StickerEditorScreen(
 
 
 
-// Full Screen Canvas Container
+// Canvas Container & Automatic Right Side Layer Panel Row
+        val isRightPanelActive = (showRightLayerPanel || layers.size >= 2) && layers.isNotEmpty()
 
-        var canvasSizePx by remember { mutableStateOf(Size.Zero) }
-
-        Box(
-
-            Modifier
-
-                .fillMaxWidth()
-
-                .aspectRatio(canvasAspectRatio)
-
-                .border(1.dp, Color(0xFF3B3B42), RoundedCornerShape(12.dp))
-
-                .background(Color(0xFF151518), RoundedCornerShape(12.dp))
-
-                .onGloballyPositioned { coordinates ->
-
-                    canvasSizePx = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
-
-                },
-
-            contentAlignment = Alignment.Center
-
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            var canvasSizePx by remember { mutableStateOf(Size.Zero) }
 
-            val density = LocalDensity.current
+            Box(
+                Modifier
+                    .weight(1f)
+                    .aspectRatio(canvasAspectRatio)
+                    .border(1.dp, Color(0xFF3B3B42), RoundedCornerShape(12.dp))
+                    .background(Color(0xFF151518), RoundedCornerShape(12.dp))
+                    .onGloballyPositioned { coordinates ->
+                        canvasSizePx = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                val density = LocalDensity.current
+                val containerWidthPx = if (canvasSizePx.width > 0f) canvasSizePx.width else 1024f
+                val containerHeightPx = if (canvasSizePx.height > 0f) canvasSizePx.height else 1024f
+                val visibleLayers = layers.filter { it.visible }
 
-            val containerWidthPx = if (canvasSizePx.width > 0f) canvasSizePx.width else 1024f
+                if (visibleLayers.isEmpty()) Text("Pumili o magdagdag ng larawan", color = Color.White)
+                else Box(Modifier.fillMaxSize().pointerInput(currentTool, activeLayer, colorIndex, brushSize, layers.size) {
+                    if (currentTool != "Brush" && currentTool != "Eraser") {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val hitIndex = findLayerAtTouch(down.position, layers, Size(size.width.toFloat(), size.height.toFloat()))
+                            activeLayer = hitIndex
 
-            val containerHeightPx = if (canvasSizePx.height > 0f) canvasSizePx.height else 1024f
+                            do {
+                                val event = awaitPointerEvent()
+                                val canceled = event.changes.any { it.isConsumed }
+                                if (!canceled && activeLayer in 0..layers.lastIndex) {
+                                    val pan = event.calculatePan()
+                                    val zoom = event.calculateZoom()
+                                    val rotationChange = event.calculateRotation()
 
-            val visibleLayers = layers.filter { it.visible }
+                                    val layer = layers[activeLayer]
+                                    if (layer.visible && !layer.isLocked) {
+                                        layer.offsetX += pan.x * canvasBaseWidth / size.width.coerceAtLeast(1)
+                                        layer.offsetY += pan.y * canvasBaseHeight / size.height.coerceAtLeast(1)
+                                        layer.scale = (layer.scale * zoom).coerceIn(0.2f, 5f)
+                                        layer.rotation += rotationChange
+                                    }
 
-
-
-            if (visibleLayers.isEmpty()) Text("Pumili o magdagdag ng larawan", color = Color.White)
-
-            else Box(Modifier.fillMaxSize().pointerInput(currentTool, activeLayer, colorIndex, brushSize, layers.size, canvasVersion) {
-
-                if (currentTool != "Brush" && currentTool != "Eraser") {
-
-                    awaitEachGesture {
-
-                        val down = awaitFirstDown(requireUnconsumed = false)
-
-                        val hitIndex = findLayerAtTouch(down.position, layers, Size(size.width.toFloat(), size.height.toFloat()))
-
-                        activeLayer = hitIndex
-
-
-
-                        do {
-
-                            val event = awaitPointerEvent()
-
-                            val canceled = event.changes.any { it.isConsumed }
-
-                            if (!canceled && activeLayer in 0..layers.lastIndex) {
-
-                                val pan = event.calculatePan()
-
-                                val zoom = event.calculateZoom()
-
-                                val rotationChange = event.calculateRotation()
-
-
-
-                                val layer = layers[activeLayer]
-
-                                if (layer.visible) {
-
-                                    layer.offsetX += pan.x * canvasBaseWidth / size.width.coerceAtLeast(1)
-
-                                    layer.offsetY += pan.y * canvasBaseHeight / size.height.coerceAtLeast(1)
-
-                                    layer.scale = (layer.scale * zoom).coerceIn(0.2f, 5f)
-
-                                    layer.rotation += rotationChange
-
+                                    if (pan != Offset.Zero || zoom != 1f || rotationChange != 0f) {
+                                        event.changes.forEach { it.consume() }
+                                    }
                                 }
-
-
-
-                                if (pan != Offset.Zero || zoom != 1f || rotationChange != 0f) {
-
-                                    event.changes.forEach { it.consume() }
-
-                                }
-
-                            }
-
-                        } while (event.changes.any { it.pressed })
-
-                    }
-
-                } else if (currentTool == "Brush" || currentTool == "Eraser") {
-
-                    detectDragGestures(
-
-                        onDragStart = { offset ->
-
-                            val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@detectDragGestures
-
-                            if (!layer.visible) return@detectDragGestures
+                            } while (event.changes.any { it.pressed })
+                        }
+                    } else if (currentTool == "Brush" || currentTool == "Eraser") {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@awaitEachGesture
+                            if (!layer.visible || layer.isLocked) return@awaitEachGesture
 
                             snapshot()
-
-                            lastTouchPos = offset
-
-                        },
-
-                        onDrag = { change, _ ->
-
-                            val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@detectDragGestures
-
-                            if (!layer.visible) return@detectDragGestures
-
-                            val prev = lastTouchPos ?: change.position
+                            var prevPos = down.position
 
                             drawStrokeOnBitmap(
-
                                 layer.bitmap,
-
-                                prev,
-
-                                change.position,
-
+                                prevPos,
+                                down.position,
                                 Size(size.width.toFloat(), size.height.toFloat()),
-
                                 layer,
-
                                 palette[colorIndex],
-
                                 brushSize,
-
                                 isEraser = (currentTool == "Eraser")
-
                             )
-
-                            lastTouchPos = change.position
-
+                            down.consume()
                             canvasVersion++
 
-                        },
+                            do {
+                                val event = awaitPointerEvent()
+                                val pointerChange = event.changes.firstOrNull { it.pressed }
+                                if (pointerChange != null) {
+                                    val historical = pointerChange.historical
+                                    for (i in 0 until historical.size) {
+                                        val histPos = historical[i].position
+                                        if (histPos != prevPos) {
+                                            drawStrokeOnBitmap(
+                                                layer.bitmap,
+                                                prevPos,
+                                                histPos,
+                                                Size(size.width.toFloat(), size.height.toFloat()),
+                                                layer,
+                                                palette[colorIndex],
+                                                brushSize,
+                                                isEraser = (currentTool == "Eraser")
+                                            )
+                                            prevPos = histPos
+                                        }
+                                    }
 
-                        onDragEnd = { lastTouchPos = null },
+                                    val currentPos = pointerChange.position
+                                    if (currentPos != prevPos) {
+                                        drawStrokeOnBitmap(
+                                            layer.bitmap,
+                                            prevPos,
+                                            currentPos,
+                                            Size(size.width.toFloat(), size.height.toFloat()),
+                                            layer,
+                                            palette[colorIndex],
+                                            brushSize,
+                                            isEraser = (currentTool == "Eraser")
+                                        )
+                                        prevPos = currentPos
+                                    }
+                                    pointerChange.consume()
+                                    canvasVersion++
+                                }
+                            } while (event.changes.any { it.pressed })
+                        }
+                    }
+                }) {
+                    Checkerboard(Modifier.matchParentSize())
 
-                        onDragCancel = { lastTouchPos = null }
-
-                    )
-
-                }
-
-            }) {
-
-                Checkerboard(Modifier.matchParentSize())
-
-
-
-                val version = canvasVersion
-
-                visibleLayers.forEachIndexed { index, layer ->
-
-                    val isSelected = index == activeLayer
-
-                    Box(
-
-                        Modifier
-
-                            .fillMaxSize()
-
-                            .graphicsLayer {
-
-                                translationX = layer.offsetX * containerWidthPx / canvasBaseWidth
-
-                                translationY = layer.offsetY * containerHeightPx / canvasBaseHeight
-
-                                scaleX = layer.scale
-
-                                scaleY = layer.scale
-
-                                rotationZ = layer.rotation
-
-                                alpha = layer.alpha
-
-                            },
-
-                        contentAlignment = Alignment.TopStart
-
-                    ) {
-
-                        Image(
-
-                            bitmap = layer.bitmap.asImageBitmap(),
-
-                            contentDescription = layer.name,
-
-                            contentScale = ContentScale.Fit,
-
-                            modifier = Modifier.fillMaxSize()
-
-                        )
-
-
-
-                        if (isSelected && currentTool != "Brush" && currentTool != "Eraser") {
-
-                            val bmpW = layer.bitmap.width.coerceAtLeast(1).toFloat()
-
-                            val bmpH = layer.bitmap.height.coerceAtLeast(1).toFloat()
-
-
-
-                            val fitScale = minOf(containerWidthPx / bmpW, containerHeightPx / bmpH)
-
-                            val bitmapLeftInBox = (containerWidthPx - bmpW * fitScale) / 2f
-
-                            val bitmapTopInBox = (containerHeightPx - bmpH * fitScale) / 2f
-
-
-
-                            val bounds = layer.visibleBounds
-
-                            val selLeftDp = with(density) { (bitmapLeftInBox + bounds.left * fitScale).toDp() }
-
-                            val selTopDp = with(density) { (bitmapTopInBox + bounds.top * fitScale).toDp() }
-
-                            val selWidthDp = with(density) { (bounds.width() * fitScale).toDp() }
-
-                            val selHeightDp = with(density) { (bounds.height() * fitScale).toDp() }
-
-
-
-                            Box(
-
-                                modifier = Modifier
-
-                                    .offset(x = selLeftDp, y = selTopDp)
-
-                                    .size(width = selWidthDp, height = selHeightDp)
-
-                                    .border(2.dp, editorRed, RoundedCornerShape(4.dp))
-
+                    val version = canvasVersion
+                    visibleLayers.forEachIndexed { index, layer ->
+                        val isSelected = index == activeLayer
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    translationX = layer.offsetX * containerWidthPx / canvasBaseWidth
+                                    translationY = layer.offsetY * containerHeightPx / canvasBaseHeight
+                                    scaleX = layer.scale
+                                    scaleY = layer.scale
+                                    rotationZ = layer.rotation
+                                    alpha = layer.alpha
+                                },
+                            contentAlignment = Alignment.TopStart
+                        ) {
+                            Image(
+                                bitmap = layer.bitmap.asImageBitmap(),
+                                contentDescription = layer.name,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize()
                             )
 
-                        }
+                            if (isSelected && currentTool != "Brush" && currentTool != "Eraser") {
+                                val bmpW = layer.bitmap.width.coerceAtLeast(1).toFloat()
+                                val bmpH = layer.bitmap.height.coerceAtLeast(1).toFloat()
 
+                                val fitScale = minOf(containerWidthPx / bmpW, containerHeightPx / bmpH)
+                                val bitmapLeftInBox = (containerWidthPx - bmpW * fitScale) / 2f
+                                val bitmapTopInBox = (containerHeightPx - bmpH * fitScale) / 2f
+
+                                val bounds = layer.visibleBounds
+                                val selLeftDp = with(density) { (bitmapLeftInBox + bounds.left * fitScale).toDp() }
+                                val selTopDp = with(density) { (bitmapTopInBox + bounds.top * fitScale).toDp() }
+                                val selWidthDp = with(density) { (bounds.width() * fitScale).toDp() }
+                                val selHeightDp = with(density) { (bounds.height() * fitScale).toDp() }
+
+                                Box(
+                                    modifier = Modifier
+                                        .offset(x = selLeftDp, y = selTopDp)
+                                        .size(width = selWidthDp, height = selHeightDp)
+                                        .border(2.dp, editorRed, RoundedCornerShape(4.dp))
+                                )
+                            }
+                        }
                     }
 
-                }
-
-
-
-                if (isRemovingBg) {
-
-                    Box(
-
-                        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)),
-
-                        contentAlignment = Alignment.Center
-
-                    ) {
-
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
-                            CircularProgressIndicator(color = editorRed)
-
-                            Spacer(Modifier.height(8.dp))
-
-                            Text("Auto Removing Background…", color = Color.White, fontSize = 14.sp)
-
+                    if (isRemovingBg) {
+                        Box(
+                            Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = editorRed)
+                                Spacer(Modifier.height(8.dp))
+                                Text("Auto Removing Background…", color = Color.White, fontSize = 14.sp)
+                            }
                         }
-
                     }
-
                 }
-
             }
 
+            if (isRightPanelActive) {
+                Spacer(Modifier.width(6.dp))
+                RightSideLayerPanel(
+                    layers = layers,
+                    activeLayer = activeLayer,
+                    selectedForMerge = selectedForMerge,
+                    onSelectLayer = { idx -> activeLayer = idx; canvasVersion++ },
+                    onToggleVisibility = { idx ->
+                        snapshot()
+                        layers[idx].visible = !layers[idx].visible
+                        canvasVersion++
+                    },
+                    onToggleLock = { idx ->
+                        snapshot()
+                        layers[idx].isLocked = !layers[idx].isLocked
+                        canvasVersion++
+                    },
+                    onMoveUp = { idx ->
+                        if (idx < layers.lastIndex) {
+                            snapshot()
+                            val temp = layers[idx]
+                            layers[idx] = layers[idx + 1]
+                            layers[idx + 1] = temp
+                            activeLayer = idx + 1
+                            canvasVersion++
+                        }
+                    },
+                    onMoveDown = { idx ->
+                        if (idx > 0) {
+                            snapshot()
+                            val temp = layers[idx]
+                            layers[idx] = layers[idx - 1]
+                            layers[idx - 1] = temp
+                            activeLayer = idx - 1
+                            canvasVersion++
+                        }
+                    },
+                    onDuplicate = { idx ->
+                        snapshot()
+                        val target = layers[idx]
+                        val dup = StickerEditorLayer("${target.name} Copy", target.bitmap.copy(Bitmap.Config.ARGB_8888, true)).apply {
+                            visible = target.visible
+                            isLocked = false
+                            scale = target.scale
+                            rotation = target.rotation
+                            offsetX = target.offsetX + 20f
+                            offsetY = target.offsetY + 20f
+                            alpha = target.alpha
+                        }
+                        layers.add(dup)
+                        activeLayer = layers.lastIndex
+                        canvasVersion++
+                    },
+                    onDelete = { idx ->
+                        if (layers.size > 1) {
+                            snapshot()
+                            layers.removeAt(idx)
+                            activeLayer = layers.lastIndex.coerceAtLeast(0)
+                            canvasVersion++
+                        } else {
+                            notice = "Kailangan ng kahit isang layer."
+                        }
+                    },
+                    onRename = { idx ->
+                        renameLayerTargetIndex = idx
+                        renameLayerInputText = layers[idx].name
+                    },
+                    onMergeSelected = {
+                        if (selectedForMerge.size >= 2) {
+                            snapshot()
+                            mergeSelectedLayers(layers, selectedForMerge)
+                            selectedForMerge.clear()
+                            activeLayer = layers.lastIndex.coerceAtLeast(0)
+                            canvasVersion++
+                            notice = "Na-merge na ang mga napiling layers!"
+                        }
+                    },
+                    onClose = { showRightLayerPanel = false },
+                    modifier = Modifier
+                        .width(140.dp)
+                        .aspectRatio(canvasAspectRatio)
+                )
+            }
         }
 
 
@@ -4811,6 +6081,50 @@ private fun StickerEditorScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
 
                     ) {
+
+                        if (activeLayer in 0..layers.lastIndex && layers[activeLayer].isSpeechBubble) {
+
+                            val activeBubbleLayer = layers[activeLayer]
+
+                            FilterChip(
+
+                                selected = true,
+
+                                onClick = {
+
+                                    editingSpeechBubbleLayer = activeBubbleLayer
+
+                                    selectedBubbleStyle = activeBubbleLayer.bubbleStyle
+
+                                    bubbleText = activeBubbleLayer.bubbleText
+
+                                    bubbleTextColorIndex = activeBubbleLayer.bubbleTextColorIndex
+
+                                    bubbleFillColorIndex = activeBubbleLayer.bubbleFillColorIndex
+
+                                    bubbleStrokeColorIndex = activeBubbleLayer.bubbleStrokeColorIndex
+
+                                    bubbleTextSizeSp = activeBubbleLayer.bubbleTextSizeSp
+
+                                    bubbleOutlineThicknessSp = activeBubbleLayer.bubbleOutlineThicknessSp
+
+                                    bubbleOpacityAlpha = activeBubbleLayer.bubbleOpacityAlpha
+
+                                    bubbleTailDirection = activeBubbleLayer.bubbleTailDirection
+
+                                    speechBubbleDialog = true
+
+                                },
+
+                                label = { Text("✏️ Edit Text", fontWeight = FontWeight.Bold) },
+
+                                colors = FilterChipDefaults.filterChipColors(containerColor = editorRed, labelColor = Color.White)
+
+                            )
+
+                        }
+
+
 
                         FilterChip(
 
@@ -5281,117 +6595,109 @@ private fun StickerEditorScreen(
 
 
                 "Layers" -> {
-
                     Column(
-
-                        modifier = Modifier
-
-                            .fillMaxWidth()
-
-                            .heightIn(max = 120.dp)
-
-                            .verticalScroll(rememberScrollState()),
-
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
 
-                        layers.forEachIndexed { idx, l ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                if (layer != null) "Layer: ${layer.name}" else "Layers (${layers.size})",
+                                fontSize = 11.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
 
-                            val isSel = idx == activeLayer
-
-                            Row(
-
-                                modifier = Modifier
-
-                                    .fillMaxWidth()
-
-                                    .background(if (isSel) Color(0xFF383840) else Color(0xFF1B1B1E), RoundedCornerShape(6.dp))
-
-                                    .clickable { activeLayer = idx }
-
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-
-                                verticalAlignment = Alignment.CenterVertically
-
+                            Button(
+                                onClick = { showRightLayerPanel = !showRightLayerPanel },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (showRightLayerPanel) editorRed else Color(0xFF383840)
+                                ),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                             ) {
-
-                                Text(
-
-                                    if (l.visible) "👁️" else "🙈",
-
-                                    fontSize = 12.sp,
-
-                                    modifier = Modifier.clickable { l.visible = !l.visible; canvasVersion++ }.padding(2.dp)
-
-                                )
-
-                                Spacer(Modifier.width(4.dp))
-
-                                Text(l.name, color = Color.White, fontSize = 11.sp, modifier = Modifier.weight(1f))
-
-                                if (idx < layers.lastIndex) {
-
-                                    Text("▲", color = Color.LightGray, fontSize = 11.sp, modifier = Modifier.clickable {
-
-                                        snapshot()
-
-                                        val temp = layers[idx]
-
-                                        layers[idx] = layers[idx + 1]
-
-                                        layers[idx + 1] = temp
-
-                                        activeLayer = idx + 1
-
-                                        canvasVersion++
-
-                                    }.padding(2.dp))
-
-                                }
-
-                                if (idx > 0) {
-
-                                    Text("▼", color = Color.LightGray, fontSize = 11.sp, modifier = Modifier.clickable {
-
-                                        snapshot()
-
-                                        val temp = layers[idx]
-
-                                        layers[idx] = layers[idx - 1]
-
-                                        layers[idx - 1] = temp
-
-                                        activeLayer = idx - 1
-
-                                        canvasVersion++
-
-                                    }.padding(2.dp))
-
-                                }
-
-                                Text("🗑", color = Color.Red, fontSize = 11.sp, modifier = Modifier.clickable {
-
-                                    if (layers.size > 1) {
-
-                                        snapshot()
-
-                                        layers.removeAt(idx)
-
-                                        activeLayer = layers.lastIndex
-
-                                        canvasVersion++
-
-                                    } else notice = "Kailangan ng kahit isang layer."
-
-                                }.padding(2.dp))
-
+                                Text(if (showRightLayerPanel) "🥞 Hide Panel" else "🥞 Show Panel", fontSize = 10.sp)
                             }
-
                         }
 
-                    }
+                        if (layer != null) {
+                            // 1. Opacity Slider
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Opacity ${(layer.alpha * 100).toInt()}%", fontSize = 10.sp, color = Color.White)
+                                Spacer(Modifier.width(6.dp))
+                                Slider(
+                                    value = layer.alpha,
+                                    onValueChange = { layer.alpha = it; canvasVersion++ },
+                                    valueRange = 0f..1f,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
 
+                            // 2. Control Chips Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                FilterChip(
+                                    selected = layer.isLocked,
+                                    onClick = { layer.isLocked = !layer.isLocked; canvasVersion++ },
+                                    label = { Text(if (layer.isLocked) "🔒 Locked" else "🔓 Unlocked", fontSize = 10.sp) }
+                                )
+
+                                FilterChip(
+                                    selected = false,
+                                    onClick = { layer.rotation = (layer.rotation + 90f) % 360f; canvasVersion++ },
+                                    label = { Text("🔄 Rotate 90°", fontSize = 10.sp) }
+                                )
+
+                                FilterChip(
+                                    selected = false,
+                                    onClick = { layer.scale = -layer.scale; canvasVersion++ },
+                                    label = { Text("↔ Flip H", fontSize = 10.sp) }
+                                )
+
+                                FilterChip(
+                                    selected = false,
+                                    onClick = { layer.offsetX = 0f; layer.offsetY = 0f; canvasVersion++ },
+                                    label = { Text("🎯 Center", fontSize = 10.sp) }
+                                )
+
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        renameLayerTargetIndex = activeLayer
+                                        renameLayerInputText = layer.name
+                                    },
+                                    label = { Text("📝 Rename", fontSize = 10.sp) }
+                                )
+
+                                FilterChip(
+                                    selected = false,
+                                    onClick = {
+                                        snapshot()
+                                        val dup = StickerEditorLayer("${layer.name} Copy", layer.bitmap.copy(Bitmap.Config.ARGB_8888, true)).apply {
+                                            visible = layer.visible
+                                            isLocked = false
+                                            scale = layer.scale
+                                            rotation = layer.rotation
+                                            offsetX = layer.offsetX + 20f
+                                            offsetY = layer.offsetY + 20f
+                                            alpha = layer.alpha
+                                        }
+                                        layers.add(dup)
+                                        activeLayer = layers.lastIndex
+                                        canvasVersion++
+                                    },
+                                    label = { Text("📋 Duplicate", fontSize = 10.sp) }
+                                )
+                            }
+                        }
+                    }
                 }
 
 
@@ -5434,21 +6740,23 @@ private fun StickerEditorScreen(
 
 
 
-        // Customizable 3-Page Tool Distribution & Swipe Pager
+        // Customizable 2-Page Tool Distribution & Swipe Pager
 
         val defaultToolOrder = remember {
 
             listOf(
 
+                "Camera", "Gallery", "Remove BG", "Auto BG",
+
+                "Outline", "Eraser", "Brush", "Shapes",
+
+                "Layers", "Text", "Speech Bubbles", "Duplicate",
+
+
+
                 "Rotate 90°", "Flip", "Center", "Reset",
 
-                "Duplicate", "Remove BG", "Outline", "Eraser",
-
-                "Brush", "Emoji", "Auto BG", "Online BG",
-
-                "Camera", "Gallery", "Restore", "Shapes",
-
-                "Text", "Filters", "Layers"
+                "Emoji", "Online BG", "Filters", "Restore"
 
             )
 
@@ -5470,7 +6778,7 @@ private fun StickerEditorScreen(
 
         val customToolOrder = remember {
 
-            val savedOrder = prefs.getString("custom_tool_order", null)
+            val savedOrder = prefs.getString("custom_tool_order_v2", null)
 
             val list = mutableStateListOf<String>()
 
@@ -5578,7 +6886,7 @@ private fun StickerEditorScreen(
 
                 "Emoji" to EditorToolSpec("Emoji", "⭐") { currentTool = "Emoji"; emojiDialog = true },
 
-                "Auto BG" to EditorToolSpec("Auto BG", "🌌") {
+                "Auto BG" to EditorToolSpec("+ Background", "🌌") {
 
                     currentTool = "Auto BG"
 
@@ -5622,11 +6930,87 @@ private fun StickerEditorScreen(
 
                 "Shapes" to EditorToolSpec("Shapes", "◩") { currentTool = "Shapes" },
 
-                "Text" to EditorToolSpec("Text", "T") { currentTool = "Text"; textDialog = true },
+                "Text" to EditorToolSpec("Text", "T") {
+
+                    currentTool = "Text"
+
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+
+                    if (layer != null && layer.isSpeechBubble) {
+
+                        editingSpeechBubbleLayer = layer
+
+                        selectedBubbleStyle = layer.bubbleStyle
+
+                        bubbleText = layer.bubbleText
+
+                        bubbleTextColorIndex = layer.bubbleTextColorIndex
+
+                        bubbleFillColorIndex = layer.bubbleFillColorIndex
+
+                        bubbleStrokeColorIndex = layer.bubbleStrokeColorIndex
+
+                        bubbleTextSizeSp = layer.bubbleTextSizeSp
+
+                        bubbleOutlineThicknessSp = layer.bubbleOutlineThicknessSp
+
+                        bubbleOpacityAlpha = layer.bubbleOpacityAlpha
+
+                        bubbleTailDirection = layer.bubbleTailDirection
+
+                        speechBubbleDialog = true
+
+                    } else {
+
+                        textDialog = true
+
+                    }
+
+                },
 
                 "Filters" to EditorToolSpec("Filters", "✨") { currentTool = "Filters" },
 
-                "Layers" to EditorToolSpec("Layers", "🥞") { currentTool = "Layers" }
+                "Layers" to EditorToolSpec("Layers", "🥞") { currentTool = "Layers" },
+
+                "Speech Bubbles" to EditorToolSpec("Bubbles", "💬") {
+
+                    currentTool = "Speech Bubbles"
+
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+
+                    if (layer != null && layer.isSpeechBubble) {
+
+                        editingSpeechBubbleLayer = layer
+
+                        selectedBubbleStyle = layer.bubbleStyle
+
+                        bubbleText = layer.bubbleText
+
+                        bubbleTextColorIndex = layer.bubbleTextColorIndex
+
+                        bubbleFillColorIndex = layer.bubbleFillColorIndex
+
+                        bubbleStrokeColorIndex = layer.bubbleStrokeColorIndex
+
+                        bubbleTextSizeSp = layer.bubbleTextSizeSp
+
+                        bubbleOutlineThicknessSp = layer.bubbleOutlineThicknessSp
+
+                        bubbleOpacityAlpha = layer.bubbleOpacityAlpha
+
+                        bubbleTailDirection = layer.bubbleTailDirection
+
+                    } else {
+
+                        editingSpeechBubbleLayer = null
+
+                        bubbleText = "Hello!"
+
+                    }
+
+                    speechBubbleDialog = true
+
+                }
 
             )
 
@@ -5642,15 +7026,157 @@ private fun StickerEditorScreen(
 
             val page2 = specs.drop(12).take(12).let { list -> list + List((12 - list.size).coerceAtLeast(0)) { null } }
 
-            val page3 = specs.drop(24).take(12).let { list -> list + List((12 - list.size).coerceAtLeast(0)) { null } }
-
-            listOf(page1, page2, page3)
+            listOf(page1, page2)
 
         }
 
 
 
-        val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
+        val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+
+
+
+        // Small Controls Bar (+ Zoom In, Reset, - Zoom Out)
+
+        Row(
+
+            modifier = Modifier
+
+                .fillMaxWidth()
+
+                .padding(horizontal = 8.dp, vertical = 2.dp),
+
+            horizontalArrangement = Arrangement.End,
+
+            verticalAlignment = Alignment.CenterVertically
+
+        ) {
+
+            Surface(
+
+                shape = RoundedCornerShape(8.dp),
+
+                color = panelColor,
+
+                border = BorderStroke(1.dp, Color(0xFF383840))
+
+            ) {
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+
+                    Box(
+
+                        modifier = Modifier
+
+                            .clickable {
+
+                                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+
+                                if (layer != null) {
+
+                                    snapshot()
+
+                                    layer.scale = (layer.scale * 1.15f).coerceAtMost(5f)
+
+                                    canvasVersion++
+
+                                    notice = "Zoom In: ${(layer.scale * 100).toInt()}%"
+
+                                } else notice = "Pumili muna ng layer."
+
+                            }
+
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+
+                    ) {
+
+                        Text("+", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+                    }
+
+
+
+                    Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color(0xFF383840)))
+
+
+
+                    Box(
+
+                        modifier = Modifier
+
+                            .clickable {
+
+                                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+
+                                if (layer != null) {
+
+                                    snapshot()
+
+                                    layer.offsetX = 0f
+
+                                    layer.offsetY = 0f
+
+                                    layer.scale = 1f
+
+                                    layer.rotation = 0f
+
+                                    canvasVersion++
+
+                                    notice = "Reset layer transform."
+
+                                } else notice = "Pumili muna ng layer."
+
+                            }
+
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+
+                    ) {
+
+                        Text("Reset", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+
+                    }
+
+
+
+                    Box(modifier = Modifier.width(1.dp).height(16.dp).background(Color(0xFF383840)))
+
+
+
+                    Box(
+
+                        modifier = Modifier
+
+                            .clickable {
+
+                                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+
+                                if (layer != null) {
+
+                                    snapshot()
+
+                                    layer.scale = (layer.scale / 1.15f).coerceAtLeast(0.2f)
+
+                                    canvasVersion++
+
+                                    notice = "Zoom Out: ${(layer.scale * 100).toInt()}%"
+
+                                } else notice = "Pumili muna ng layer."
+
+                            }
+
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+
+                    ) {
+
+                        Text("−", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+
+                    }
+
+                }
+
+            }
+
+        }
 
 
 
@@ -5908,7 +7434,7 @@ private fun StickerEditorScreen(
 
         ) {
 
-            repeat(3) { pageIdx ->
+            repeat(2) { pageIdx ->
 
                 val isActive = pagerState.currentPage == pageIdx
 
@@ -5966,7 +7492,7 @@ private fun StickerEditorScreen(
 
                             val savedStr = customToolOrder.joinToString(",")
 
-                            prefs.edit().putString("custom_tool_order", savedStr).apply()
+                            prefs.edit().putString("custom_tool_order_v2", savedStr).apply()
 
                             Toast.makeText(context, "Tool layout saved!", Toast.LENGTH_SHORT).show()
 
@@ -5994,7 +7520,7 @@ private fun StickerEditorScreen(
 
                             customToolOrder.addAll(defaultToolOrder)
 
-                            prefs.edit().remove("custom_tool_order").apply()
+                            prefs.edit().remove("custom_tool_order_v2").apply()
 
                             Toast.makeText(context, "Tool layout reset to default.", Toast.LENGTH_SHORT).show()
 
@@ -6020,6 +7546,41 @@ private fun StickerEditorScreen(
 
         Text(notice, color = Color.LightGray, fontSize = 12.sp, textAlign = TextAlign.Center)
 
+    }
+
+    renameLayerTargetIndex?.let { idx ->
+        if (idx in 0..layers.lastIndex) {
+            val targetLayer = layers[idx]
+            AlertDialog(
+                onDismissRequest = { renameLayerTargetIndex = null },
+                title = { Text("Rename Layer") },
+                text = {
+                    OutlinedTextField(
+                        value = renameLayerInputText,
+                        onValueChange = { renameLayerInputText = it },
+                        singleLine = true,
+                        label = { Text("Layer Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            if (renameLayerInputText.isNotBlank()) {
+                                snapshot()
+                                targetLayer.name = renameLayerInputText
+                                canvasVersion++
+                            }
+                            renameLayerTargetIndex = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = editorRed)
+                    ) { Text("Save") }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { renameLayerTargetIndex = null }) { Text("Cancel") }
+                }
+            )
+        }
     }
 
 
@@ -6089,6 +7650,886 @@ private fun StickerEditorScreen(
             dismissButton = { TextButton(onClick = { textDialog = false }) { Text("Cancel") } }
 
         )
+
+    }
+
+
+
+    if (speechBubbleDialog) {
+
+        val bubbleStyles = listOf(
+
+            "Classic Comic Bubble",
+
+            "Cloud Thought Bubble",
+
+            "Comic Explosion",
+
+            "Shout Bubble",
+
+            "Oval Dialogue Bubble",
+
+            "Heart Bubble",
+
+            "Pixel Bubble",
+
+            "Double Dialogue Bubble",
+
+            "Ribbon Bubble",
+
+            "Question Bubble",
+
+            "Exclamation Bubble",
+
+            "Emotional Reaction Bubble"
+
+        )
+
+
+
+        val tailDirections = listOf("Bottom Left", "Bottom Right", "Top Left", "Top Right")
+
+
+
+        val mainPreviewBmp = remember(
+
+            selectedBubbleStyle,
+
+            bubbleText,
+
+            bubbleTextColorIndex,
+
+            bubbleTextSizeSp,
+
+            bubbleFillColorIndex,
+
+            bubbleStrokeColorIndex,
+
+            bubbleOutlineThicknessSp,
+
+            bubbleOpacityAlpha,
+
+            bubbleTailDirection
+
+        ) {
+
+            createSpeechBubbleBitmap(
+
+                bubbleStyle = selectedBubbleStyle,
+
+                text = bubbleText,
+
+                textColorInt = palette[bubbleTextColorIndex],
+
+                textSizeSp = bubbleTextSizeSp,
+
+                fillColorInt = palette[bubbleFillColorIndex],
+
+                strokeColorInt = palette[bubbleStrokeColorIndex],
+
+                strokeThicknessPx = bubbleOutlineThicknessSp,
+
+                opacityAlpha = bubbleOpacityAlpha,
+
+                tailDirection = bubbleTailDirection
+
+            )
+
+        }
+
+
+
+        Dialog(onDismissRequest = { speechBubbleDialog = false }) {
+
+            Surface(
+
+                shape = RoundedCornerShape(24.dp),
+
+                color = Color(0xFFF9F7FE),
+
+                tonalElevation = 8.dp,
+
+                modifier = Modifier
+
+                    .fillMaxWidth()
+
+                    .padding(vertical = 12.dp)
+
+            ) {
+
+                Column(
+
+                    modifier = Modifier
+
+                        .fillMaxWidth()
+
+                        .padding(16.dp)
+
+                        .heightIn(max = 560.dp)
+
+                        .verticalScroll(rememberScrollState()),
+
+                    horizontalAlignment = Alignment.CenterHorizontally
+
+                ) {
+
+                    // Header Row with Purple Icon & Title
+
+                    Row(
+
+                        modifier = Modifier.fillMaxWidth(),
+
+                        verticalAlignment = Alignment.CenterVertically
+
+                    ) {
+
+                        Box(
+
+                            modifier = Modifier
+
+                                .size(42.dp)
+
+                                .clip(CircleShape)
+
+                                .background(Color(0xFF8B5CF6)),
+
+                            contentAlignment = Alignment.Center
+
+                        ) {
+
+                            Text("💬", color = Color.White, fontSize = 20.sp)
+
+                        }
+
+
+
+                        Spacer(Modifier.width(12.dp))
+
+
+
+                        Column(modifier = Modifier.weight(1f)) {
+
+                            Text(
+
+                                text = "Add Speech Bubble",
+
+                                fontSize = 20.sp,
+
+                                fontWeight = FontWeight.Bold,
+
+                                color = Color(0xFF2E1065)
+
+                            )
+
+                            Text(
+
+                                text = "Choose a speech bubble style to add to your sticker.",
+
+                                fontSize = 11.sp,
+
+                                color = Color(0xFF6B7280)
+
+                            )
+
+                        }
+
+                    }
+
+
+
+                    Spacer(Modifier.height(14.dp))
+
+
+
+                    // Large Preview Box with Light Checkerboard
+
+                    Box(
+
+                        modifier = Modifier
+
+                            .fillMaxWidth()
+
+                            .height(170.dp)
+
+                            .clip(RoundedCornerShape(16.dp))
+
+                            .background(Color(0xFFF0EBFE)),
+
+                        contentAlignment = Alignment.Center
+
+                    ) {
+
+                        Checkerboard(Modifier.matchParentSize())
+
+                        Image(
+
+                            bitmap = mainPreviewBmp.asImageBitmap(),
+
+                            contentDescription = "Speech Bubble Preview",
+
+                            modifier = Modifier
+
+                                .fillMaxSize()
+
+                                .padding(8.dp)
+
+                        )
+
+                    }
+
+
+
+                    Spacer(Modifier.height(14.dp))
+
+
+
+                    // Section Badge
+
+                    Box(
+
+                        modifier = Modifier
+
+                            .clip(RoundedCornerShape(16.dp))
+
+                            .background(Color(0xFF8B5CF6))
+
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+
+                    ) {
+
+                        Text(
+
+                            text = "Select Bubble Design (12 Styles):",
+
+                            color = Color.White,
+
+                            fontSize = 12.sp,
+
+                            fontWeight = FontWeight.Bold
+
+                        )
+
+                    }
+
+
+
+                    Spacer(Modifier.height(10.dp))
+
+
+
+                    // 12 Styles Grid (3 Columns x 4 Rows)
+
+                    Column(
+
+                        modifier = Modifier.fillMaxWidth(),
+
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+
+                    ) {
+
+                        bubbleStyles.chunked(3).forEach { rowStyles ->
+
+                            Row(
+
+                                modifier = Modifier.fillMaxWidth(),
+
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+
+                            ) {
+
+                                rowStyles.forEach { styleName ->
+
+                                    val isSelected = selectedBubbleStyle == styleName
+
+                                    val thumbBmp = remember(styleName) {
+
+                                        createSpeechBubbleBitmap(
+
+                                            bubbleStyle = styleName,
+
+                                            text = "ABC",
+
+                                            textColorInt = AndroidColor.BLACK,
+
+                                            textSizeSp = 20f,
+
+                                            fillColorInt = AndroidColor.WHITE,
+
+                                            strokeColorInt = AndroidColor.BLACK,
+
+                                            strokeThicknessPx = 6f,
+
+                                            bitmapSize = 120
+
+                                        )
+
+                                    }
+
+
+
+                                    Card(
+
+                                        modifier = Modifier
+
+                                            .weight(1f)
+
+                                            .clickable { selectedBubbleStyle = styleName },
+
+                                        shape = RoundedCornerShape(12.dp),
+
+                                        colors = CardDefaults.cardColors(
+
+                                            containerColor = if (isSelected) Color(0xFF2A2438) else Color(0xFF1E182E)
+
+                                        ),
+
+                                        border = if (isSelected) BorderStroke(2.dp, Color(0xFF8B5CF6)) else BorderStroke(1.dp, Color(0xFF383248))
+
+                                    ) {
+
+                                        Box(modifier = Modifier.fillMaxWidth()) {
+
+                                            Column(
+
+                                                modifier = Modifier.padding(6.dp),
+
+                                                horizontalAlignment = Alignment.CenterHorizontally
+
+                                            ) {
+
+                                                Box(
+
+                                                    modifier = Modifier
+
+                                                        .fillMaxWidth()
+
+                                                        .height(58.dp)
+
+                                                        .clip(RoundedCornerShape(8.dp))
+
+                                                        .background(Color(0xFFF2EDFE)),
+
+                                                    contentAlignment = Alignment.Center
+
+                                                ) {
+
+                                                    Checkerboard(Modifier.matchParentSize())
+
+                                                    Image(
+
+                                                        bitmap = thumbBmp.asImageBitmap(),
+
+                                                        contentDescription = styleName,
+
+                                                        modifier = Modifier
+
+                                                            .fillMaxSize()
+
+                                                            .padding(2.dp)
+
+                                                    )
+
+                                                }
+
+
+
+                                                Spacer(Modifier.height(4.dp))
+
+
+
+                                                Text(
+
+                                                    text = styleName,
+
+                                                    color = Color.White,
+
+                                                    fontSize = 9.sp,
+
+                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+
+                                                    textAlign = TextAlign.Center,
+
+                                                    maxLines = 1,
+
+                                                    overflow = TextOverflow.Ellipsis
+
+                                                )
+
+                                            }
+
+
+
+                                            if (isSelected) {
+
+                                                Box(
+
+                                                    modifier = Modifier
+
+                                                        .align(Alignment.TopEnd)
+
+                                                        .padding(4.dp)
+
+                                                        .size(16.dp)
+
+                                                        .clip(CircleShape)
+
+                                                        .background(Color(0xFF8B5CF6)),
+
+                                                    contentAlignment = Alignment.Center
+
+                                                ) {
+
+                                                    Text("✓", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+
+                                                }
+
+                                            }
+
+                                        }
+
+                                    }
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+
+
+                    Spacer(Modifier.height(14.dp))
+
+
+
+                    OutlinedTextField(
+
+                        value = bubbleText,
+
+                        onValueChange = { bubbleText = it },
+
+                        label = { Text("Bubble Text") },
+
+                        singleLine = false,
+
+                        maxLines = 3,
+
+                        modifier = Modifier.fillMaxWidth()
+
+                    )
+
+
+
+                    Spacer(Modifier.height(10.dp))
+
+
+
+                    Text("Tail Direction:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Row(
+
+                        modifier = Modifier
+
+                            .fillMaxWidth()
+
+                            .horizontalScroll(rememberScrollState()),
+
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+                    ) {
+
+                        tailDirections.forEach { dir ->
+
+                            FilterChip(
+
+                                selected = bubbleTailDirection == dir,
+
+                                onClick = { bubbleTailDirection = dir },
+
+                                label = { Text(dir, fontSize = 11.sp) }
+
+                            )
+
+                        }
+
+                    }
+
+
+
+                    Spacer(Modifier.height(10.dp))
+
+
+
+                    Text("Text Color:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Row(
+
+                        modifier = Modifier
+
+                            .fillMaxWidth()
+
+                            .horizontalScroll(rememberScrollState()),
+
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+                    ) {
+
+                        palette.forEachIndexed { idx, color ->
+
+                            Box(
+
+                                modifier = Modifier
+
+                                    .size(26.dp)
+
+                                    .clip(CircleShape)
+
+                                    .background(Color(color))
+
+                                    .border(if (bubbleTextColorIndex == idx) 2.dp else 0.dp, Color(0xFF8B5CF6), CircleShape)
+
+                                    .clickable { bubbleTextColorIndex = idx }
+
+                            )
+
+                        }
+
+                    }
+
+
+
+                    Spacer(Modifier.height(10.dp))
+
+
+
+                    Text("Fill Color:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Row(
+
+                        modifier = Modifier
+
+                            .fillMaxWidth()
+
+                            .horizontalScroll(rememberScrollState()),
+
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+                    ) {
+
+                        palette.forEachIndexed { idx, color ->
+
+                            Box(
+
+                                modifier = Modifier
+
+                                    .size(26.dp)
+
+                                    .clip(CircleShape)
+
+                                    .background(Color(color))
+
+                                    .border(if (bubbleFillColorIndex == idx) 2.dp else 0.dp, Color(0xFF8B5CF6), CircleShape)
+
+                                    .clickable { bubbleFillColorIndex = idx }
+
+                            )
+
+                        }
+
+                    }
+
+
+
+                    Spacer(Modifier.height(10.dp))
+
+
+
+                    Text("Outline Color:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Row(
+
+                        modifier = Modifier
+
+                            .fillMaxWidth()
+
+                            .horizontalScroll(rememberScrollState()),
+
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+
+                    ) {
+
+                        palette.forEachIndexed { idx, color ->
+
+                            Box(
+
+                                modifier = Modifier
+
+                                    .size(26.dp)
+
+                                    .clip(CircleShape)
+
+                                    .background(Color(color))
+
+                                    .border(if (bubbleStrokeColorIndex == idx) 2.dp else 0.dp, Color(0xFF8B5CF6), CircleShape)
+
+                                    .clickable { bubbleStrokeColorIndex = idx }
+
+                            )
+
+                        }
+
+                    }
+
+
+
+                    Spacer(Modifier.height(10.dp))
+
+
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+
+                        Text("Font Size: ${bubbleTextSizeSp.toInt()}sp", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold)
+
+                        Spacer(Modifier.width(8.dp))
+
+                        Slider(
+
+                            value = bubbleTextSizeSp,
+
+                            onValueChange = { bubbleTextSizeSp = it },
+
+                            valueRange = 18f..60f,
+
+                            modifier = Modifier.weight(1f)
+
+                        )
+
+                    }
+
+
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+
+                        Text("Outline Thickness: ${bubbleOutlineThicknessSp.toInt()}px", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold)
+
+                        Spacer(Modifier.width(8.dp))
+
+                        Slider(
+
+                            value = bubbleOutlineThicknessSp,
+
+                            onValueChange = { bubbleOutlineThicknessSp = it },
+
+                            valueRange = 2f..24f,
+
+                            modifier = Modifier.weight(1f)
+
+                        )
+
+                    }
+
+
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+
+                        Text("Opacity: ${(bubbleOpacityAlpha * 100).toInt()}%", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold)
+
+                        Spacer(Modifier.width(8.dp))
+
+                        Slider(
+
+                            value = bubbleOpacityAlpha,
+
+                            onValueChange = { bubbleOpacityAlpha = it },
+
+                            valueRange = 0.2f..1.0f,
+
+                            modifier = Modifier.weight(1f)
+
+                        )
+
+                    }
+
+
+
+                    Spacer(Modifier.height(16.dp))
+
+
+
+                    // Primary Add / Update Button
+
+                    Button(
+
+                        onClick = {
+
+                            val bmp = createSpeechBubbleBitmap(
+
+                                bubbleStyle = selectedBubbleStyle,
+
+                                text = bubbleText,
+
+                                textColorInt = palette[bubbleTextColorIndex],
+
+                                textSizeSp = bubbleTextSizeSp,
+
+                                fillColorInt = palette[bubbleFillColorIndex],
+
+                                strokeColorInt = palette[bubbleStrokeColorIndex],
+
+                                strokeThicknessPx = bubbleOutlineThicknessSp,
+
+                                opacityAlpha = bubbleOpacityAlpha,
+
+                                tailDirection = bubbleTailDirection
+
+                            )
+
+
+
+                            val target = editingSpeechBubbleLayer
+
+                            if (target != null) {
+
+                                snapshot()
+
+                                target.bitmap = bmp
+
+                                target.name = "Speech Bubble: $bubbleText"
+
+                                target.updateVisibleBounds()
+
+                                target.isSpeechBubble = true
+
+                                target.bubbleStyle = selectedBubbleStyle
+
+                                target.bubbleText = bubbleText
+
+                                target.bubbleTextColorIndex = bubbleTextColorIndex
+
+                                target.bubbleFillColorIndex = bubbleFillColorIndex
+
+                                target.bubbleStrokeColorIndex = bubbleStrokeColorIndex
+
+                                target.bubbleTextSizeSp = bubbleTextSizeSp
+
+                                target.bubbleOutlineThicknessSp = bubbleOutlineThicknessSp
+
+                                target.bubbleOpacityAlpha = bubbleOpacityAlpha
+
+                                target.bubbleTailDirection = bubbleTailDirection
+
+                                canvasVersion++
+
+                                notice = "Na-update ang Speech Bubble text!"
+
+                                Toast.makeText(context, "Speech Bubble updated!", Toast.LENGTH_SHORT).show()
+
+                            } else {
+
+                                addBitmap("Speech Bubble: $bubbleText", bmp)
+
+                                val newLayer = layers.lastOrNull()
+
+                                if (newLayer != null) {
+
+                                    newLayer.isSpeechBubble = true
+
+                                    newLayer.bubbleStyle = selectedBubbleStyle
+
+                                    newLayer.bubbleText = bubbleText
+
+                                    newLayer.bubbleTextColorIndex = bubbleTextColorIndex
+
+                                    newLayer.bubbleFillColorIndex = bubbleFillColorIndex
+
+                                    newLayer.bubbleStrokeColorIndex = bubbleStrokeColorIndex
+
+                                    newLayer.bubbleTextSizeSp = bubbleTextSizeSp
+
+                                    newLayer.bubbleOutlineThicknessSp = bubbleOutlineThicknessSp
+
+                                    newLayer.bubbleOpacityAlpha = bubbleOpacityAlpha
+
+                                    newLayer.bubbleTailDirection = bubbleTailDirection
+
+                                }
+
+                            }
+
+                            currentTool = "Move"
+
+                            speechBubbleDialog = false
+
+                        },
+
+                        modifier = Modifier
+
+                            .fillMaxWidth()
+
+                            .height(50.dp),
+
+                        shape = RoundedCornerShape(25.dp),
+
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6))
+
+                    ) {
+
+                        Text(
+
+                            text = if (editingSpeechBubbleLayer != null) "💾 Update Speech Bubble" else "💬＋ Add Speech Bubble",
+
+                            fontSize = 15.sp,
+
+                            fontWeight = FontWeight.Bold,
+
+                            color = Color.White
+
+                        )
+
+                    }
+
+
+
+                    Spacer(Modifier.height(8.dp))
+
+
+
+                    // Secondary Cancel Button
+
+                    OutlinedButton(
+
+                        onClick = { speechBubbleDialog = false },
+
+                        modifier = Modifier
+
+                            .fillMaxWidth()
+
+                            .height(44.dp),
+
+                        shape = RoundedCornerShape(22.dp),
+
+                        border = BorderStroke(1.5.dp, Color(0xFF8B5CF6))
+
+                    ) {
+
+                        Text("Cancel", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF6A1B9A))
+
+                    }
+
+                }
+
+            }
+
+        }
 
     }
 
@@ -7948,386 +10389,158 @@ data class CreatorModel(
 
 
 @Composable
-
 fun CreatorsScreen(
-
     context: Context,
-
     prefs: android.content.SharedPreferences,
-
     onBack: () -> Unit
-
 ) {
-
     var searchQuery by remember { mutableStateOf("") }
-
     var selectedTab by remember { mutableStateOf("Featured") }
-
-
+    var selectedCreatorName by remember { mutableStateOf<String?>(null) }
 
     var followedIds by remember {
-
-        mutableStateOf(prefs.getStringSet("followed_creators", setOf("c1")) ?: setOf("c1"))
-
+        mutableStateOf(prefs.getStringSet("followed_creators", setOf("creator_memeking")) ?: setOf("creator_memeking"))
     }
 
-
-
-    val sampleCreators = remember {
-
-        listOf(
-
-            CreatorModel(
-
-                id = "c1",
-
-                name = "Mimo Studio",
-
-                handle = "@mimo_official",
-
-                avatar = "🎨",
-
-                bio = "Official MySticker creator. Premium HD stickers & memes!",
-
-                stickersCount = 120,
-
-                sampleStickers = listOf("🐱", "🚀", "🔥", "✨")
-
-            ),
-
-            CreatorModel(
-
-                id = "c2",
-
-                name = "Pixel Master",
-
-                handle = "@pixel_art",
-
-                avatar = "👾",
-
-                bio = "Retro 8-bit & pixel art sticker collections.",
-
-                stickersCount = 85,
-
-                sampleStickers = listOf("🎮", "👾", "🕹️", "⚡")
-
-            ),
-
-            CreatorModel(
-
-                id = "c3",
-
-                name = "Doodle Queen",
-
-                handle = "@doodle_q",
-
-                avatar = "🌸",
-
-                bio = "Hand-drawn cute animals, kawaii expressions & flowers.",
-
-                stickersCount = 64,
-
-                sampleStickers = listOf("🌸", "🐰", "💖", "🍓")
-
-            )
-
-        )
-
+    val realCreators = remember {
+        UserStickerTemplatesManager.getTopCreators(context)
     }
 
-
-
-    val filteredCreators = remember(searchQuery, selectedTab, followedIds) {
-
-        sampleCreators.filter { creator ->
-
-            val matchesQuery = searchQuery.isBlank() ||
-
-                    creator.name.contains(searchQuery, ignoreCase = true) ||
-
-                    creator.handle.contains(searchQuery, ignoreCase = true) ||
-
-                    creator.bio.contains(searchQuery, ignoreCase = true)
-
-            val matchesTab = when (selectedTab) {
-
-                "Following" -> followedIds.contains(creator.id)
-
-                else -> true
-
-            }
-
-            matchesQuery && matchesTab
-
+    val filteredCreators = remember(searchQuery, selectedTab, followedIds, realCreators) {
+        val list = when (selectedTab) {
+            "Popular" -> realCreators.sortedByDescending { it.totalUses }
+            "Following" -> realCreators.filter { followedIds.contains(it.id) }
+            else -> realCreators
         }
 
+        if (searchQuery.isNotBlank()) {
+            list.filter { creator ->
+                creator.name.contains(searchQuery, ignoreCase = true) ||
+                creator.handle.contains(searchQuery, ignoreCase = true) ||
+                creator.bio.contains(searchQuery, ignoreCase = true)
+            }
+        } else list
     }
 
-
-
     Column(modifier = Modifier.fillMaxWidth()) {
-
         Text("👥 Sticker Creators", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-
         Spacer(Modifier.height(6.dp))
-
         Text("Discover top creators and their sticker creations.", fontSize = 14.sp, color = Color.Gray)
-
         Spacer(Modifier.height(16.dp))
 
-
-
         OutlinedTextField(
-
             value = searchQuery,
-
             onValueChange = { searchQuery = it },
-
             label = { Text("Search creator or style…") },
-
             trailingIcon = { Text("🔍") },
-
             modifier = Modifier.fillMaxWidth(),
-
             singleLine = true,
-
             shape = RoundedCornerShape(16.dp)
-
         )
-
-
 
         Spacer(Modifier.height(12.dp))
 
-
-
         Row(
-
             modifier = Modifier.fillMaxWidth(),
-
             horizontalArrangement = Arrangement.spacedBy(8.dp)
-
         ) {
-
             listOf("Featured", "Popular", "Following").forEach { tab ->
-
                 FilterChip(
-
                     selected = selectedTab == tab,
-
                     onClick = { selectedTab = tab },
-
                     label = { Text(tab) }
-
                 )
-
             }
-
         }
-
-
 
         Spacer(Modifier.height(16.dp))
 
-
-
         if (filteredCreators.isEmpty()) {
-
             Card(
-
                 modifier = Modifier.fillMaxWidth(),
-
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF2F5))
-
             ) {
-
                 Text(
-
                     "No creators found.",
-
                     modifier = Modifier.padding(20.dp),
-
                     textAlign = TextAlign.Center
-
                 )
-
             }
-
         } else {
-
             filteredCreators.forEach { creator ->
-
                 val isFollowing = followedIds.contains(creator.id)
-
                 Card(
-
                     modifier = Modifier
-
                         .fillMaxWidth()
-
-                        .padding(vertical = 6.dp),
-
+                        .padding(vertical = 6.dp)
+                        .clickable { selectedCreatorName = creator.name },
                     shape = RoundedCornerShape(16.dp),
-
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFFAFAFA))
-
                 ) {
-
                     Column(modifier = Modifier.padding(16.dp)) {
-
                         Row(verticalAlignment = Alignment.CenterVertically) {
-
                             Box(
-
                                 modifier = Modifier
-
                                     .size(50.dp)
-
                                     .background(Color(0xFFFFF2F5), CircleShape)
-
                                     .border(2.dp, Color.Red, CircleShape),
-
                                 contentAlignment = Alignment.Center
-
                             ) {
-
                                 Text(creator.avatar, fontSize = 26.sp)
-
                             }
-
                             Spacer(Modifier.width(12.dp))
-
                             Column(modifier = Modifier.weight(1f)) {
-
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-
                                     Text(creator.name, style = MaterialTheme.typography.titleMedium)
-
                                     if (creator.verified) {
-
                                         Spacer(Modifier.width(4.dp))
-
                                         Text("✔️", fontSize = 12.sp, color = Color(0xFF1685F8))
-
                                     }
-
                                 }
-
-                                Text(creator.handle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-
+                                Text("${creator.handle} · 📥 ${creator.totalUses} uses · ❤️ ${creator.totalLikes} likes", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                             }
-
-
 
                             Button(
-
                                 onClick = {
-
                                     val updated = if (isFollowing) followedIds - creator.id else followedIds + creator.id
-
                                     followedIds = updated
-
                                     prefs.edit().putStringSet("followed_creators", updated).apply()
-
                                     Toast.makeText(
-
                                         context,
-
                                         if (!isFollowing) "Following ${creator.name}!" else "Unfollowed ${creator.name}",
-
                                         Toast.LENGTH_SHORT
-
                                     ).show()
-
                                 },
-
                                 colors = ButtonDefaults.buttonColors(
-
                                     containerColor = if (isFollowing) Color.DarkGray else Color.Red
-
                                 ),
-
                                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-
                             ) {
-
                                 Text(if (isFollowing) "Following ✓" else "＋ Follow", fontSize = 12.sp)
-
                             }
-
                         }
-
-
 
                         Spacer(Modifier.height(8.dp))
-
                         Text(creator.bio, style = MaterialTheme.typography.bodySmall)
 
-
-
-                        Spacer(Modifier.height(12.dp))
-
-
-
-                        Row(
-
-                            modifier = Modifier.fillMaxWidth(),
-
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-
-                        ) {
-
-                            creator.sampleStickers.forEach { stickerEmoji ->
-
-                                Card(
-
-                                    modifier = Modifier
-
-                                        .weight(1f)
-
-                                        .height(60.dp),
-
-                                    colors = CardDefaults.cardColors(containerColor = Color.White),
-
-                                    shape = RoundedCornerShape(12.dp)
-
-                                ) {
-
-                                    Box(
-
-                                        modifier = Modifier.fillMaxSize(),
-
-                                        contentAlignment = Alignment.Center
-
-                                    ) {
-
-                                        Text(stickerEmoji, fontSize = 28.sp)
-
-                                    }
-
-                                }
-
-                            }
-
-                        }
-
+                        Spacer(Modifier.height(8.dp))
+                        Text("Published Templates: ${creator.templates.size}", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFFF1744))
                     }
-
                 }
-
             }
-
         }
-
-
-
-        Spacer(Modifier.height(20.dp))
-
     }
 
+    selectedCreatorName?.let { name ->
+        CreatorProfileDialog(
+            creatorName = name,
+            onDismiss = { selectedCreatorName = null },
+            onUseTemplate = { selected ->
+                selectedCreatorName = null
+            }
+        )
+    }
 }
-
-
 
 @Composable
 
