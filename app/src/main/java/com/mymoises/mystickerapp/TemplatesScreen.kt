@@ -2,6 +2,7 @@ package com.mymoises.mystickerapp
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -9,7 +10,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.mutableFloatStateOf
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -767,6 +774,141 @@ private fun MyTemplateItemCard(
     }
 }
 
+@Composable
+fun ZoomablePreviewBox(
+    bitmap: Bitmap?,
+    modifier: Modifier = Modifier,
+    contentDescription: String = "Preview"
+) {
+    var scale by remember { mutableFloatStateOf(1.0f) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
+
+    val zoomPercent = (scale * 100).roundToInt()
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF1E182E))
+            .border(1.dp, Color(0xFF383248), RoundedCornerShape(16.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clipToBounds()
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        scale = (scale * zoom).coerceIn(1.0f, 5.0f)
+                        if (scale > 1.0f) {
+                            offsetX = (offsetX + pan.x).coerceIn(-300f * (scale - 1f), 300f * (scale - 1f))
+                            offsetY = (offsetY + pan.y).coerceIn(-300f * (scale - 1f), 300f * (scale - 1f))
+                        } else {
+                            offsetX = 0f
+                            offsetY = 0f
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Checkerboard(Modifier.matchParentSize())
+
+            if (bitmap != null && !bitmap.isRecycled) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = contentDescription,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp)
+                        .graphicsLayer {
+                            scaleX = scale
+                            scaleY = scale
+                            translationX = offsetX
+                            translationY = offsetY
+                        }
+                )
+            } else {
+                Text("🎨", fontSize = 48.sp)
+            }
+        }
+
+        // Floating Zoom Controls: [-] 100% [+] [Reset]
+        androidx.compose.material3.Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 8.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = Color(0xDD10143A),
+            border = BorderStroke(1.dp, primaryRed)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Zoom Out
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF2A2438))
+                        .clickable {
+                            scale = (scale / 1.25f).coerceAtLeast(1.0f)
+                            if (scale == 1.0f) {
+                                offsetX = 0f
+                                offsetY = 0f
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("−", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+
+                // Percentage Indicator
+                Text(
+                    text = "$zoomPercent%",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Zoom In
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF2A2438))
+                        .clickable {
+                            scale = (scale * 1.25f).coerceAtMost(5.0f)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+
+                // Reset
+                if (scale != 1.0f || offsetX != 0f || offsetY != 0f) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(primaryRed)
+                            .clickable {
+                                scale = 1.0f
+                                offsetX = 0f
+                                offsetY = 0f
+                            }
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Reset", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
 // SEPARATE TEMPLATE PREVIEW SCREEN DIALOG
 @Composable
 fun TemplatePreviewDialog(
@@ -822,32 +964,14 @@ fun TemplatePreviewDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Large Preview Display Box preserving original template proportions
-                Card(
+                // Large Zoomable Preview Display Box
+                ZoomablePreviewBox(
+                    bitmap = previewBitmap,
+                    contentDescription = template.name,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(1f),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8F8)),
-                    border = BorderStroke(1.dp, softPink)
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Checkerboard(Modifier.matchParentSize())
-                        if (previewBitmap != null) {
-                            Image(
-                                bitmap = previewBitmap.asImageBitmap(),
-                                contentDescription = template.name,
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize().padding(12.dp)
-                            )
-                        } else {
-                            Text("🎨", fontSize = 48.sp)
-                        }
-                    }
-                }
+                        .aspectRatio(1f)
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 

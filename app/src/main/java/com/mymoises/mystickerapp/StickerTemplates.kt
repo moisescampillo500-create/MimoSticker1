@@ -43,21 +43,57 @@ data class StickerTemplate(
 
 object TemplateCategories {
     val ALL = "All"
+    val BIRTHDAY = "Birthday"
+    val CHRISTMAS = "Christmas"
+    val ANNIVERSARY = "Anniversary"
+    val MONTHSARY = "Monthsary"
+    val GENGGENG = "Genggeng"
+    val NEW_YEAR = "New Year"
+    val VALENTINES_DAY = "Valentine's Day"
+    val SUMMER = "Summer"
+    val RAINY_SEASON = "Rainy Season"
+    val COFFEE = "Coffee"
+    val NUTRITION_MONTH = "Nutrition Month"
+    val NATIONAL_HOLIDAYS = "National Holidays"
+    val HALLOWEEN = "Halloween"
+    val PARTY = "Party"
     val CUTE = "Cute"
     val LOVE = "Love"
     val FUNNY = "Funny"
     val MEME = "Meme"
     val SPEECH_BUBBLES = "Speech Bubbles"
+    val THOUGHT_BUBBLES = "Thought Bubbles"
     val REACTIONS = "Reactions"
+    val STICKERS = "Stickers"
+    val BACKGROUNDS = "Backgrounds"
+    val CREATIVE = "Creative"
 
     val CATEGORIES_LIST = listOf(
         ALL,
+        BIRTHDAY,
+        CHRISTMAS,
+        ANNIVERSARY,
+        MONTHSARY,
+        GENGGENG,
+        NEW_YEAR,
+        VALENTINES_DAY,
+        SUMMER,
+        RAINY_SEASON,
+        COFFEE,
+        NUTRITION_MONTH,
+        NATIONAL_HOLIDAYS,
+        HALLOWEEN,
+        PARTY,
         CUTE,
         LOVE,
         FUNNY,
         MEME,
         SPEECH_BUBBLES,
-        REACTIONS
+        THOUGHT_BUBBLES,
+        REACTIONS,
+        STICKERS,
+        BACKGROUNDS,
+        CREATIVE
     )
 }
 

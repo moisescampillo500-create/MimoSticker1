@@ -35,6 +35,8 @@ import androidx.compose.foundation.gestures.calculateRotation
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.pager.HorizontalPager
@@ -3747,6 +3749,27 @@ private fun calculateVisibleBounds(bitmap: Bitmap): RectF {
     }
 }
 
+private fun resolveTypeface(fontFamily: String, fontStyle: String): Typeface {
+    val family = when (fontFamily) {
+        "Serif" -> Typeface.SERIF
+        "Monospace" -> Typeface.MONOSPACE
+        "Cursive", "Handwriting" -> Typeface.SERIF
+        "Sans Serif Medium" -> Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        "Sans Serif Condensed" -> Typeface.create("sans-serif-condensed", Typeface.NORMAL)
+        "Sans Serif Black" -> Typeface.create("sans-serif-black", Typeface.NORMAL)
+        else -> Typeface.SANS_SERIF
+    }
+
+    val style = when (fontStyle) {
+        "Bold" -> Typeface.BOLD
+        "Italic" -> Typeface.ITALIC
+        "Bold Italic" -> Typeface.BOLD_ITALIC
+        else -> Typeface.NORMAL
+    }
+
+    return Typeface.create(family, style)
+}
+
 private class StickerEditorLayer(var name: String, var bitmap: Bitmap) {
 
     var visible by mutableStateOf(true)
@@ -3764,6 +3787,25 @@ private class StickerEditorLayer(var name: String, var bitmap: Bitmap) {
     var alpha by mutableFloatStateOf(1f)
 
     var visibleBounds by mutableStateOf(calculateVisibleBounds(bitmap))
+
+    // Advanced Text & Font Customization Properties
+    var textFontFamily by mutableStateOf("Sans Serif")
+
+    var textFontStyle by mutableStateOf("Bold")
+
+    var textAlignName by mutableStateOf("Center")
+
+    var textFontSizeSp by mutableFloatStateOf(48f)
+
+    var textColorIndex by mutableIntStateOf(0)
+
+    var textOutlineColorIndex by mutableIntStateOf(2)
+
+    var textOutlineThicknessPx by mutableFloatStateOf(10f)
+
+    var textLetterSpacingEm by mutableFloatStateOf(0f)
+
+    var hasTextShadow by mutableStateOf(true)
 
     // Speech Bubble Editable Properties
     var isSpeechBubble by mutableStateOf(false)
@@ -3785,6 +3827,12 @@ private class StickerEditorLayer(var name: String, var bitmap: Bitmap) {
     var bubbleOpacityAlpha by mutableFloatStateOf(1.0f)
 
     var bubbleTailDirection by mutableStateOf("Bottom Left")
+
+    var bubbleFontFamily by mutableStateOf("Sans Serif")
+
+    var bubbleFontStyle by mutableStateOf("Bold")
+
+    var bubbleTextAlignName by mutableStateOf("Center")
 
     fun updateVisibleBounds() {
         visibleBounds = calculateVisibleBounds(bitmap)
@@ -4214,41 +4262,59 @@ private fun mergeSelectedLayers(
 }
 
 @Composable
-private fun RightSideLayerPanel(
+private fun FloatingLayersPanelWindow(
     layers: List<StickerEditorLayer>,
     activeLayer: Int,
     selectedForMerge: androidx.compose.runtime.snapshots.SnapshotStateList<Int>,
     onSelectLayer: (Int) -> Unit,
     onToggleVisibility: (Int) -> Unit,
     onToggleLock: (Int) -> Unit,
+    onOpenSettings: (Int) -> Unit,
     onMoveUp: (Int) -> Unit,
     onMoveDown: (Int) -> Unit,
     onDuplicate: (Int) -> Unit,
     onDelete: (Int) -> Unit,
     onRename: (Int) -> Unit,
     onMergeSelected: () -> Unit,
+    onMinimize: () -> Unit,
     onClose: () -> Unit,
+    onDrag: (Float, Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E22)),
-        border = BorderStroke(1.dp, Color(0xFF383840))
+        border = BorderStroke(1.dp, Color(0xFF42424D)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(6.dp)
         ) {
+            // Drag Handle Header
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF2B2B32), RoundedCornerShape(8.dp))
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            onDrag(dragAmount.x, dragAmount.y)
+                        }
+                    }
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("🥞 Layers (${layers.size})", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                IconButton(onClick = onClose, modifier = Modifier.size(20.dp)) {
-                    Text("✕", color = Color.LightGray, fontSize = 11.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("⋮⋮ 🥞 Layers (${layers.size})", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("➖", fontSize = 10.sp, color = Color.LightGray, modifier = Modifier.clickable { onMinimize() })
+                    Text("✕", fontSize = 10.sp, color = Color.LightGray, modifier = Modifier.clickable { onClose() })
                 }
             }
 
@@ -4260,7 +4326,7 @@ private fun RightSideLayerPanel(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744)),
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
                     shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth().height(26.dp)
+                    modifier = Modifier.fillMaxWidth().height(24.dp)
                 ) {
                     Text("🧩 Merge (${selectedForMerge.size})", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
@@ -4309,7 +4375,7 @@ private fun RightSideLayerPanel(
 
                                 Box(
                                     modifier = Modifier
-                                        .size(28.dp)
+                                        .size(26.dp)
                                         .clip(RoundedCornerShape(4.dp))
                                         .background(Color(0xFF151518)),
                                     contentAlignment = Alignment.Center
@@ -4357,6 +4423,12 @@ private fun RightSideLayerPanel(
                                     modifier = Modifier.clickable { onToggleLock(idx) }
                                 )
 
+                                Text(
+                                    "⚙️",
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.clickable { onOpenSettings(idx) }
+                                )
+
                                 if (idx < layers.lastIndex) {
                                     Text("▲", color = Color.LightGray, fontSize = 9.sp, modifier = Modifier.clickable { onMoveUp(idx) })
                                 }
@@ -4364,8 +4436,6 @@ private fun RightSideLayerPanel(
                                 if (idx > 0) {
                                     Text("▼", color = Color.LightGray, fontSize = 9.sp, modifier = Modifier.clickable { onMoveDown(idx) })
                                 }
-
-                                Text("📝", fontSize = 9.sp, modifier = Modifier.clickable { onRename(idx) })
 
                                 Text("📋", fontSize = 9.sp, modifier = Modifier.clickable { onDuplicate(idx) })
 
@@ -4389,6 +4459,10 @@ private fun createSpeechBubbleBitmap(
     strokeThicknessPx: Float = 10f,
     opacityAlpha: Float = 1.0f,
     tailDirection: String = "Bottom Left",
+    fontFamily: String = "Sans Serif",
+    fontStyle: String = "Bold",
+    textAlignName: String = "Center",
+    hasShadow: Boolean = true,
     bitmapSize: Int = 512
 ): Bitmap {
     val bitmap = Bitmap.createBitmap(bitmapSize, bitmapSize, Bitmap.Config.ARGB_8888)
@@ -4694,12 +4768,28 @@ private fun createSpeechBubbleBitmap(
     }
 
     if (text.isNotBlank()) {
+        val tf = resolveTypeface(fontFamily, fontStyle)
+        val align = when (textAlignName) {
+            "Left" -> Paint.Align.LEFT
+            "Right" -> Paint.Align.RIGHT
+            else -> Paint.Align.CENTER
+        }
+
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = textColorInt
             textSize = textSizeSp * 1.25f
-            textAlign = Paint.Align.CENTER
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            textAlign = align
+            typeface = tf
             alpha = (opacityAlpha * 255).toInt().coerceIn(0, 255)
+            if (hasShadow) {
+                setShadowLayer(6f, 2f, 2f, AndroidColor.parseColor("#88000000"))
+            }
+        }
+
+        val x = when (align) {
+            Paint.Align.LEFT -> rect.left + 40f
+            Paint.Align.RIGHT -> rect.right - 40f
+            else -> rect.centerX()
         }
 
         val lines = text.split("\n")
@@ -4707,7 +4797,7 @@ private fun createSpeechBubbleBitmap(
         val startY = rect.centerY() - ((lines.size - 1) * lineSpacing / 2f) + (textPaint.textSize / 3f)
 
         lines.forEachIndexed { idx, line ->
-            canvas.drawText(line, rect.centerX(), startY + (idx * lineSpacing), textPaint)
+            canvas.drawText(line, x, startY + (idx * lineSpacing), textPaint)
         }
     }
 
@@ -4860,9 +4950,37 @@ private fun StickerEditorScreen(
 
     var textDialog by remember { mutableStateOf(false) }
 
+    var editingTextLayer by remember { mutableStateOf<StickerEditorLayer?>(null) }
+
+    var textFontFamily by remember { mutableStateOf("Sans Serif") }
+
+    var textFontStyle by remember { mutableStateOf("Bold") }
+
+    var textAlignName by remember { mutableStateOf("Center") }
+
+    var textFontSizeSp by remember { mutableFloatStateOf(48f) }
+
+    var textColorIndex by remember { mutableIntStateOf(0) }
+
+    var textOutlineColorIndex by remember { mutableIntStateOf(2) }
+
+    var textOutlineThicknessPx by remember { mutableFloatStateOf(10f) }
+
+    var textLetterSpacingEm by remember { mutableFloatStateOf(0f) }
+
+    var hasTextShadow by remember { mutableStateOf(true) }
+
     var speechBubbleDialog by remember { mutableStateOf(false) }
 
     var editingSpeechBubbleLayer by remember { mutableStateOf<StickerEditorLayer?>(null) }
+
+    var bubbleFontFamily by remember { mutableStateOf("Sans Serif") }
+
+    var bubbleFontStyle by remember { mutableStateOf("Bold") }
+
+    var bubbleTextAlignName by remember { mutableStateOf("Center") }
+
+    var hasBubbleShadow by remember { mutableStateOf(true) }
 
     var selectedBubbleStyle by remember { mutableStateOf("Classic Speech Bubble") }
 
@@ -4934,9 +5052,19 @@ private fun StickerEditorScreen(
 
     var activeFilter by remember { mutableStateOf("Original") }
 
+    var floatingPanelOffsetX by remember { mutableFloatStateOf(160f) }
+
+    var floatingPanelOffsetY by remember { mutableFloatStateOf(20f) }
+
+    var isPanelMinimized by remember { mutableStateOf(false) }
+
+    var isPanelHidden by remember { mutableStateOf(true) }
+
+    var layerSettingsTargetIndex by remember { mutableStateOf<Int?>(null) }
+
     var lastTouchPos by remember { mutableStateOf<Offset?>(null) }
 
-    var showRightLayerPanel by remember { mutableStateOf(true) }
+    var showRightLayerPanel by remember { mutableStateOf(false) }
 
     val selectedForMerge = remember { mutableStateListOf<Int>() }
 
@@ -5781,19 +5909,18 @@ private fun StickerEditorScreen(
 
 
 
-// Canvas Container & Automatic Right Side Layer Panel Row
-        val isRightPanelActive = (showRightLayerPanel || layers.size >= 2) && layers.isNotEmpty()
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+// Full Canvas Container Box
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(canvasAspectRatio),
+            contentAlignment = Alignment.TopStart
         ) {
             var canvasSizePx by remember { mutableStateOf(Size.Zero) }
 
             Box(
                 Modifier
-                    .weight(1f)
-                    .aspectRatio(canvasAspectRatio)
+                    .fillMaxSize()
                     .border(1.dp, Color(0xFF3B3B42), RoundedCornerShape(12.dp))
                     .background(Color(0xFF151518), RoundedCornerShape(12.dp))
                     .onGloballyPositioned { coordinates ->
@@ -5965,777 +6092,267 @@ private fun StickerEditorScreen(
                 }
             }
 
-            if (isRightPanelActive) {
-                Spacer(Modifier.width(6.dp))
-                RightSideLayerPanel(
-                    layers = layers,
-                    activeLayer = activeLayer,
-                    selectedForMerge = selectedForMerge,
-                    onSelectLayer = { idx -> activeLayer = idx; canvasVersion++ },
-                    onToggleVisibility = { idx ->
-                        snapshot()
-                        layers[idx].visible = !layers[idx].visible
-                        canvasVersion++
-                    },
-                    onToggleLock = { idx ->
-                        snapshot()
-                        layers[idx].isLocked = !layers[idx].isLocked
-                        canvasVersion++
-                    },
-                    onMoveUp = { idx ->
-                        if (idx < layers.lastIndex) {
+            // Floating Draggable Layers Panel Window / Minimized Icon (Hidden by Default)
+            val isFloatingPanelVisible = !isPanelHidden && showRightLayerPanel && layers.isNotEmpty()
+
+            if (isFloatingPanelVisible) {
+                if (isPanelMinimized) {
+                    Box(
+                        modifier = Modifier
+                            .offset { IntOffset(floatingPanelOffsetX.roundToInt(), floatingPanelOffsetY.roundToInt()) }
+                            .pointerInput(Unit) {
+                                detectDragGestures { change, dragAmount ->
+                                    change.consume()
+                                    floatingPanelOffsetX += dragAmount.x
+                                    floatingPanelOffsetY += dragAmount.y
+                                }
+                            }
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(editorRed)
+                            .border(2.dp, Color.White, CircleShape)
+                            .clickable { isPanelMinimized = false },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🥞", fontSize = 20.sp)
+                    }
+                } else {
+                    FloatingLayersPanelWindow(
+                        layers = layers,
+                        activeLayer = activeLayer,
+                        selectedForMerge = selectedForMerge,
+                        onSelectLayer = { idx -> activeLayer = idx; canvasVersion++ },
+                        onToggleVisibility = { idx ->
                             snapshot()
-                            val temp = layers[idx]
-                            layers[idx] = layers[idx + 1]
-                            layers[idx + 1] = temp
-                            activeLayer = idx + 1
+                            layers[idx].visible = !layers[idx].visible
                             canvasVersion++
-                        }
-                    },
-                    onMoveDown = { idx ->
-                        if (idx > 0) {
+                        },
+                        onToggleLock = { idx ->
                             snapshot()
-                            val temp = layers[idx]
-                            layers[idx] = layers[idx - 1]
-                            layers[idx - 1] = temp
-                            activeLayer = idx - 1
+                            layers[idx].isLocked = !layers[idx].isLocked
                             canvasVersion++
-                        }
-                    },
-                    onDuplicate = { idx ->
-                        snapshot()
-                        val target = layers[idx]
-                        val dup = StickerEditorLayer("${target.name} Copy", target.bitmap.copy(Bitmap.Config.ARGB_8888, true)).apply {
-                            visible = target.visible
-                            isLocked = false
-                            scale = target.scale
-                            rotation = target.rotation
-                            offsetX = target.offsetX + 20f
-                            offsetY = target.offsetY + 20f
-                            alpha = target.alpha
-                        }
-                        layers.add(dup)
-                        activeLayer = layers.lastIndex
-                        canvasVersion++
-                    },
-                    onDelete = { idx ->
-                        if (layers.size > 1) {
+                        },
+                        onOpenSettings = { idx ->
+                            layerSettingsTargetIndex = idx
+                        },
+                        onMoveUp = { idx ->
+                            if (idx < layers.lastIndex) {
+                                snapshot()
+                                val temp = layers[idx]
+                                layers[idx] = layers[idx + 1]
+                                layers[idx + 1] = temp
+                                activeLayer = idx + 1
+                                canvasVersion++
+                            }
+                        },
+                        onMoveDown = { idx ->
+                            if (idx > 0) {
+                                snapshot()
+                                val temp = layers[idx]
+                                layers[idx] = layers[idx - 1]
+                                layers[idx - 1] = temp
+                                activeLayer = idx - 1
+                                canvasVersion++
+                            }
+                        },
+                        onDuplicate = { idx ->
                             snapshot()
-                            layers.removeAt(idx)
-                            activeLayer = layers.lastIndex.coerceAtLeast(0)
+                            val target = layers[idx]
+                            val dup = StickerEditorLayer("${target.name} Copy", target.bitmap.copy(Bitmap.Config.ARGB_8888, true)).apply {
+                                visible = target.visible
+                                isLocked = false
+                                scale = target.scale
+                                rotation = target.rotation
+                                offsetX = target.offsetX + 20f
+                                offsetY = target.offsetY + 20f
+                                alpha = target.alpha
+                            }
+                            layers.add(dup)
+                            activeLayer = layers.lastIndex
                             canvasVersion++
-                        } else {
-                            notice = "Kailangan ng kahit isang layer."
-                        }
-                    },
-                    onRename = { idx ->
-                        renameLayerTargetIndex = idx
-                        renameLayerInputText = layers[idx].name
-                    },
-                    onMergeSelected = {
-                        if (selectedForMerge.size >= 2) {
-                            snapshot()
-                            mergeSelectedLayers(layers, selectedForMerge)
-                            selectedForMerge.clear()
-                            activeLayer = layers.lastIndex.coerceAtLeast(0)
-                            canvasVersion++
-                            notice = "Na-merge na ang mga napiling layers!"
-                        }
-                    },
-                    onClose = { showRightLayerPanel = false },
-                    modifier = Modifier
-                        .width(140.dp)
-                        .aspectRatio(canvasAspectRatio)
-                )
+                        },
+                        onDelete = { idx ->
+                            if (layers.size > 1) {
+                                snapshot()
+                                layers.removeAt(idx)
+                                activeLayer = layers.lastIndex.coerceAtLeast(0)
+                                canvasVersion++
+                            } else {
+                                notice = "Kailangan ng kahit isang layer."
+                            }
+                        },
+                        onRename = { idx ->
+                            renameLayerTargetIndex = idx
+                            renameLayerInputText = layers[idx].name
+                        },
+                        onMergeSelected = {
+                            if (selectedForMerge.size >= 2) {
+                                snapshot()
+                                mergeSelectedLayers(layers, selectedForMerge)
+                                selectedForMerge.clear()
+                                activeLayer = layers.lastIndex.coerceAtLeast(0)
+                                canvasVersion++
+                                notice = "Na-merge na ang mga napiling layers!"
+                            }
+                        },
+                        onMinimize = { isPanelMinimized = true },
+                        onClose = {
+                            isPanelHidden = true
+                            showRightLayerPanel = false
+                        },
+                        onDrag = { dx, dy ->
+                            floatingPanelOffsetX += dx
+                            floatingPanelOffsetY += dy
+                        },
+                        modifier = Modifier
+                            .offset { IntOffset(floatingPanelOffsetX.roundToInt(), floatingPanelOffsetY.roundToInt()) }
+                            .width(145.dp)
+                            .heightIn(max = 240.dp)
+                    )
+                }
             }
         }
 
 
 
-// Active Tool Control Sub-Panel
+// Active Tool Control Sub-Panel (Only for tools requiring specific sliders or controls)
+        val showToolSubPanel = when (currentTool) {
+            "Outline", "Eraser", "Brush", "Shapes", "Filters" -> true
+            "Move" -> activeLayer in 0..layers.lastIndex && layers[activeLayer].isSpeechBubble
+            else -> false
+        }
 
-        Box(
-
-            modifier = Modifier
-
-                .fillMaxWidth()
-
-                .heightIn(min = 44.dp)
-
-                .background(panelColor, RoundedCornerShape(8.dp))
-
-                .padding(horizontal = 6.dp, vertical = 4.dp),
-
-            contentAlignment = Alignment.Center
-
-        ) {
-
-            when (currentTool) {
-
-                "Move" -> {
-
-                    Row(
-
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-
-                    ) {
-
+        if (showToolSubPanel) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 38.dp)
+                    .background(panelColor, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                when (currentTool) {
+                    "Move" -> {
                         if (activeLayer in 0..layers.lastIndex && layers[activeLayer].isSpeechBubble) {
-
                             val activeBubbleLayer = layers[activeLayer]
-
                             FilterChip(
-
                                 selected = true,
-
                                 onClick = {
-
                                     editingSpeechBubbleLayer = activeBubbleLayer
-
                                     selectedBubbleStyle = activeBubbleLayer.bubbleStyle
-
                                     bubbleText = activeBubbleLayer.bubbleText
-
                                     bubbleTextColorIndex = activeBubbleLayer.bubbleTextColorIndex
-
                                     bubbleFillColorIndex = activeBubbleLayer.bubbleFillColorIndex
-
                                     bubbleStrokeColorIndex = activeBubbleLayer.bubbleStrokeColorIndex
-
                                     bubbleTextSizeSp = activeBubbleLayer.bubbleTextSizeSp
-
                                     bubbleOutlineThicknessSp = activeBubbleLayer.bubbleOutlineThicknessSp
-
                                     bubbleOpacityAlpha = activeBubbleLayer.bubbleOpacityAlpha
-
                                     bubbleTailDirection = activeBubbleLayer.bubbleTailDirection
-
                                     speechBubbleDialog = true
-
                                 },
-
-                                label = { Text("✏️ Edit Text", fontWeight = FontWeight.Bold) },
-
+                                label = { Text("✏️ Edit Speech Bubble", fontWeight = FontWeight.Bold) },
                                 colors = FilterChipDefaults.filterChipColors(containerColor = editorRed, labelColor = Color.White)
-
                             )
-
                         }
-
-
-
-                        FilterChip(
-
-                            selected = false,
-
-                            onClick = {
-
-                                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@FilterChip
-
-                                snapshot()
-
-                                layer.rotation = (layer.rotation + 90f) % 360f
-
-                                canvasVersion++
-
-                            },
-
-                            label = { Text("🔄 Rotate 90°") }
-
-                        )
-
-                        FilterChip(
-
-                            selected = false,
-
-                            onClick = {
-
-                                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@FilterChip
-
-                                snapshot()
-
-                                layer.scale = -layer.scale
-
-                                canvasVersion++
-
-                            },
-
-                            label = { Text("↔ Flip") }
-
-                        )
-
-                        FilterChip(
-
-                            selected = false,
-
-                            onClick = {
-
-                                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@FilterChip
-
-                                snapshot()
-
-                                layer.offsetX = 0f
-
-                                layer.offsetY = 0f
-
-                                canvasVersion++
-
-                            },
-
-                            label = { Text("🎯 Center") }
-
-                        )
-
-                        FilterChip(
-
-                            selected = false,
-
-                            onClick = {
-
-                                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@FilterChip
-
-                                snapshot()
-
-                                layer.offsetX = 0f
-
-                                layer.offsetY = 0f
-
-                                layer.scale = 1f
-
-                                layer.rotation = 0f
-
-                                canvasVersion++
-
-                            },
-
-                            label = { Text("↩ Reset") }
-
-                        )
-
-                        FilterChip(
-
-                            selected = false,
-
-                            onClick = {
-
-                                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@FilterChip
-
-                                addBitmap("${layer.name} Copy", layer.bitmap)
-
-                                notice = "Na-duplicate ang layer."
-
-                            },
-
-                            label = { Text("📋 Duplicate") }
-
-                        )
-
                     }
 
-                }
-
-
-
-                "Remove BG" -> {
-
-                    Row(
-
-                        modifier = Modifier.fillMaxWidth(),
-
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-
-                        verticalAlignment = Alignment.CenterVertically
-
-                    ) {
-
-                        Button(
-
-                            onClick = {
-
-                                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
-
-                                if (layer == null) {
-
-                                    notice = "Pumili muna ng layer na tatanggalan ng background."
-
-                                    return@Button
-
-                                }
-
-                                scope.launch {
-
-                                    isRemovingBg = true
-
-                                    notice = "Awtomatikong tinatanggal ang background ng layer..."
-
-                                    val cutout = performAutoBackgroundRemoval(context, layer.bitmap)
-
-                                    if (cutout != null) {
-
-                                        snapshot()
-
-                                        layer.bitmap = cutout
-
-                                        canvasVersion++
-
-                                        notice = "Na-remove na ang background ng layer!"
-
-                                        Toast.makeText(context, "Background removed!", Toast.LENGTH_SHORT).show()
-
-                                    } else {
-
-                                        notice = "Walang subject na nahanap sa layer."
-
-                                        Toast.makeText(context, "Could not detect subject.", Toast.LENGTH_SHORT).show()
-
-                                    }
-
-                                    isRemovingBg = false
-
-                                }
-
-                            },
-
-                            enabled = !isRemovingBg && activeLayer in 0..layers.lastIndex,
-
-                            colors = ButtonDefaults.buttonColors(containerColor = editorRed),
-
-                            modifier = Modifier.weight(1f)
-
-                        ) {
-
-                            Text("✨ Auto Cutout Layer", fontSize = 12.sp)
-
-                        }
-
-                    }
-
-                }
-
-
-
-                "Outline" -> {
-
-                    Column(modifier = Modifier.fillMaxWidth()) {
-
-                        Text("Choose Outline Color & Apply:", fontSize = 11.sp, color = Color.White)
-
-                        Spacer(Modifier.height(4.dp))
-
-                        Row(
-
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-
-                            verticalAlignment = Alignment.CenterVertically
-
-                        ) {
-
-                            palette.forEachIndexed { idx, color ->
-
-                                Box(
-
-                                    modifier = Modifier
-
-                                        .size(26.dp)
-
-                                        .clip(CircleShape)
-
-                                        .background(Color(color))
-
-                                        .border(if (outlineColorIndex == idx) 2.dp else 0.dp, Color.White, CircleShape)
-
-                                        .clickable { outlineColorIndex = idx }
-
-                                )
-
-                            }
-
-                            Button(
-
-                                onClick = {
-
-                                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
-
-                                    if (layer != null) {
-
-                                        snapshot()
-
-                                        layer.bitmap = addStickerOutline(layer.bitmap, palette[outlineColorIndex])
-
-                                        canvasVersion++
-
-                                        notice = "Na-apply ang outline sa layer!"
-
-                                    } else notice = "Pumili muna ng layer."
-
-                                },
-
-                                colors = ButtonDefaults.buttonColors(containerColor = editorRed),
-
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
-
-                            ) { Text("Apply", fontSize = 11.sp) }
-
-                        }
-
-                    }
-
-                }
-
-
-
-                "Eraser" -> {
-
-                    Row(
-
-                        modifier = Modifier.fillMaxWidth(),
-
-                        verticalAlignment = Alignment.CenterVertically
-
-                    ) {
-
-                        Text("Eraser ${brushSize.toInt()}dp", fontSize = 11.sp, color = Color.White)
-
-                        Spacer(Modifier.width(6.dp))
-
-                        Slider(
-
-                            value = brushSize,
-
-                            onValueChange = { brushSize = it },
-
-                            valueRange = 8f..80f,
-
-                            modifier = Modifier.weight(1f)
-
-                        )
-
-                        TextButton(onClick = {
-
-                            val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
-
-                            if (layer != null) {
-
-                                snapshot()
-
-                                layer.bitmap.eraseColor(AndroidColor.TRANSPARENT)
-
-                                canvasVersion++
-
-                                notice = "Na-clear ang layer."
-
-                            }
-
-                        }) { Text("Clear", color = Color.Red, fontSize = 11.sp) }
-
-                    }
-
-                }
-
-
-
-                "Brush" -> {
-
-                    Column(modifier = Modifier.fillMaxWidth()) {
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-
-                            Text("Brush ${brushSize.toInt()}dp", fontSize = 11.sp, color = Color.White)
-
-                            Spacer(Modifier.width(6.dp))
-
-                            Slider(
-
-                                value = brushSize,
-
-                                onValueChange = { brushSize = it },
-
-                                valueRange = 4f..60f,
-
-                                modifier = Modifier.weight(1f)
-
-                            )
-
-                        }
-
-                        Row(
-
-                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-
-                        ) {
-
-                            palette.forEachIndexed { idx, color ->
-
-                                Box(
-
-                                    modifier = Modifier
-
-                                        .size(24.dp)
-
-                                        .clip(CircleShape)
-
-                                        .background(Color(color))
-
-                                        .border(if (colorIndex == idx) 2.dp else 0.dp, Color.White, CircleShape)
-
-                                        .clickable { colorIndex = idx }
-
-                                )
-
-                            }
-
-                        }
-
-                    }
-
-                }
-
-
-
-                "Shapes" -> {
-
-                    Row(
-
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-
-                    ) {
-
-                        listOf("Rectangle", "Circle", "Heart", "Star", "Rounded Rect", "Frame").forEach { shape ->
-
-                            FilterChip(
-
-                                selected = selectedShape == shape,
-
-                                onClick = {
-
-                                    selectedShape = shape
-
-                                    val shapeBmp = createShapeBitmap(shape, 512, palette[colorIndex])
-
-                                    addBitmap("Shape $shape", shapeBmp)
-
-                                    notice = "Naidagdag ang hugis $shape."
-
-                                },
-
-                                label = { Text(shape, fontSize = 11.sp) }
-
-                            )
-
-                        }
-
-                    }
-
-                }
-
-
-
-                "Filters" -> {
-
-                    Row(
-
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-
-                    ) {
-
-                        listOf("Original", "Grayscale", "Sepia", "Brightness", "Contrast", "Invert", "Vintage", "Neon", "Warm", "Cool").forEach { filter ->
-
-                            FilterChip(
-
-                                selected = activeFilter == filter,
-
-                                onClick = {
-
-                                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
-
-                                    if (layer != null) {
-
-                                        val baseOrig = originalBitmapsMap[layer.name] ?: layer.bitmap.copy(Bitmap.Config.ARGB_8888, true)
-
-                                        if (!originalBitmapsMap.containsKey(layer.name)) {
-
-                                            originalBitmapsMap[layer.name] = baseOrig
-
-                                        }
-
-                                        snapshot()
-
-                                        activeFilter = filter
-
-                                        layer.bitmap = applyImageFilter(baseOrig, filter)
-
-                                        canvasVersion++
-
-                                        notice = "Filter: $filter"
-
-                                    } else notice = "Pumili muna ng layer."
-
-                                },
-
-                                label = { Text(filter, fontSize = 11.sp) }
-
-                            )
-
-                        }
-
-                    }
-
-                }
-
-
-
-                "Layers" -> {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
-
+                    "Outline" -> {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                if (layer != null) "Layer: ${layer.name}" else "Layers (${layers.size})",
-                                fontSize = 11.sp,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
+                            Text("Outline Size", fontSize = 11.sp, color = Color.White)
+                            Spacer(Modifier.width(6.dp))
+                            var thickness by remember { mutableFloatStateOf(16f) }
+                            Slider(
+                                value = thickness,
+                                onValueChange = { thickness = it },
+                                valueRange = 4f..40f,
+                                modifier = Modifier.weight(1f)
                             )
-
                             Button(
-                                onClick = { showRightLayerPanel = !showRightLayerPanel },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (showRightLayerPanel) editorRed else Color(0xFF383840)
-                                ),
+                                onClick = {
+                                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+                                    if (layer != null) {
+                                        snapshot()
+                                        layer.bitmap = addStickerOutline(layer.bitmap, palette[outlineColorIndex])
+                                        canvasVersion++
+                                        notice = "Naidagdag ang outline."
+                                    } else notice = "Pumili muna ng layer."
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = editorRed),
                                 contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                             ) {
-                                Text(if (showRightLayerPanel) "🥞 Hide Panel" else "🥞 Show Panel", fontSize = 10.sp)
+                                Text("Apply", fontSize = 11.sp)
                             }
                         }
+                    }
 
-                        if (layer != null) {
-                            // 1. Opacity Slider
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Opacity ${(layer.alpha * 100).toInt()}%", fontSize = 10.sp, color = Color.White)
-                                Spacer(Modifier.width(6.dp))
-                                Slider(
-                                    value = layer.alpha,
-                                    onValueChange = { layer.alpha = it; canvasVersion++ },
-                                    valueRange = 0f..1f,
-                                    modifier = Modifier.weight(1f)
+                    "Eraser", "Brush" -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Size ${brushSize.toInt()}dp", fontSize = 11.sp, color = Color.White)
+                            Spacer(Modifier.width(6.dp))
+                            Slider(
+                                value = brushSize,
+                                onValueChange = { brushSize = it },
+                                valueRange = 4f..60f,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    "Shapes" -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf("Rectangle", "Circle", "Heart", "Star", "Rounded Rect", "Frame").forEach { shape ->
+                                FilterChip(
+                                    selected = selectedShape == shape,
+                                    onClick = {
+                                        selectedShape = shape
+                                        val shapeBmp = createShapeBitmap(shape, 512, palette[colorIndex])
+                                        addBitmap("Shape $shape", shapeBmp)
+                                        notice = "Naidagdag ang hugis $shape."
+                                    },
+                                    label = { Text(shape, fontSize = 11.sp) }
                                 )
                             }
+                        }
+                    }
 
-                            // 2. Control Chips Row
-                            Row(
-                                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
+                    "Filters" -> {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf("Original", "Grayscale", "Sepia", "Brightness", "Contrast", "Invert", "Vintage", "Neon", "Warm", "Cool").forEach { filter ->
                                 FilterChip(
-                                    selected = layer.isLocked,
-                                    onClick = { layer.isLocked = !layer.isLocked; canvasVersion++ },
-                                    label = { Text(if (layer.isLocked) "🔒 Locked" else "🔓 Unlocked", fontSize = 10.sp) }
-                                )
-
-                                FilterChip(
-                                    selected = false,
-                                    onClick = { layer.rotation = (layer.rotation + 90f) % 360f; canvasVersion++ },
-                                    label = { Text("🔄 Rotate 90°", fontSize = 10.sp) }
-                                )
-
-                                FilterChip(
-                                    selected = false,
-                                    onClick = { layer.scale = -layer.scale; canvasVersion++ },
-                                    label = { Text("↔ Flip H", fontSize = 10.sp) }
-                                )
-
-                                FilterChip(
-                                    selected = false,
-                                    onClick = { layer.offsetX = 0f; layer.offsetY = 0f; canvasVersion++ },
-                                    label = { Text("🎯 Center", fontSize = 10.sp) }
-                                )
-
-                                FilterChip(
-                                    selected = false,
+                                    selected = activeFilter == filter,
                                     onClick = {
-                                        renameLayerTargetIndex = activeLayer
-                                        renameLayerInputText = layer.name
+                                        val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+                                        if (layer != null) {
+                                            val baseOrig = originalBitmapsMap[layer.name] ?: layer.bitmap.copy(Bitmap.Config.ARGB_8888, true)
+                                            if (!originalBitmapsMap.containsKey(layer.name)) {
+                                                originalBitmapsMap[layer.name] = baseOrig
+                                            }
+                                            snapshot()
+                                            activeFilter = filter
+                                            layer.bitmap = applyImageFilter(baseOrig, filter)
+                                            canvasVersion++
+                                            notice = "Filter: $filter"
+                                        } else notice = "Pumili muna ng layer."
                                     },
-                                    label = { Text("📝 Rename", fontSize = 10.sp) }
-                                )
-
-                                FilterChip(
-                                    selected = false,
-                                    onClick = {
-                                        snapshot()
-                                        val dup = StickerEditorLayer("${layer.name} Copy", layer.bitmap.copy(Bitmap.Config.ARGB_8888, true)).apply {
-                                            visible = layer.visible
-                                            isLocked = false
-                                            scale = layer.scale
-                                            rotation = layer.rotation
-                                            offsetX = layer.offsetX + 20f
-                                            offsetY = layer.offsetY + 20f
-                                            alpha = layer.alpha
-                                        }
-                                        layers.add(dup)
-                                        activeLayer = layers.lastIndex
-                                        canvasVersion++
-                                    },
-                                    label = { Text("📋 Duplicate", fontSize = 10.sp) }
+                                    label = { Text(filter, fontSize = 11.sp) }
                                 )
                             }
                         }
                     }
                 }
-
-
-
-                else -> {
-
-                    Text(
-
-                        when (currentTool) {
-
-                            "Text" -> "I-tap ang 'Add Text' button o papalitan ang text layer."
-
-                            "Emoji" -> "Pumili ng emoji stamp na ilalagay sa sticker."
-
-                            "Auto BG" -> "Mag-generate ng auto gradient o AI background."
-
-                            "Online BG" -> "Mag-download ng HD online backgrounds."
-
-                            "Camera" -> "Kumuha ng litrato mula sa camera."
-
-                            "Gallery" -> "Pumili ng larawan sa gallery."
-
-                            "Restore" -> "I-restore ang layer pabalik sa orihinal."
-
-                            else -> "Pumili ng tool para mag-edit."
-
-                        },
-
-                        fontSize = 11.sp,
-
-                        color = Color.LightGray
-
-                    )
-
-                }
-
             }
-
         }
 
 
@@ -6876,7 +6493,33 @@ private fun StickerEditorScreen(
 
                 },
 
-                "Remove BG" to EditorToolSpec("Remove BG", "✂️") { currentTool = "Remove BG" },
+                "Remove BG" to EditorToolSpec("Remove BG", "✂️") {
+                    currentTool = "Remove BG"
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+                    if (layer == null) {
+                        notice = "Pumili muna ng layer o larawan."
+                        Toast.makeText(context, "Please select an image layer first.", Toast.LENGTH_SHORT).show()
+                        return@EditorToolSpec
+                    }
+
+                    scope.launch {
+                        isRemovingBg = true
+                        notice = "Awtomatikong tinatanggal ang background ng layer..."
+                        val cutout = performAutoBackgroundRemoval(context, layer.bitmap)
+                        if (cutout != null) {
+                            snapshot()
+                            layer.bitmap = cutout
+                            layer.updateVisibleBounds()
+                            canvasVersion++
+                            notice = "Na-remove na ang background ng layer!"
+                            Toast.makeText(context, "Background removed successfully!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            notice = "Hindi matukoy ang subject sa larawan."
+                            Toast.makeText(context, "Could not detect subject in image.", Toast.LENGTH_SHORT).show()
+                        }
+                        isRemovingBg = false
+                    }
+                },
 
                 "Outline" to EditorToolSpec("Outline", "🎨") { currentTool = "Outline" },
 
@@ -6970,7 +6613,13 @@ private fun StickerEditorScreen(
 
                 "Filters" to EditorToolSpec("Filters", "✨") { currentTool = "Filters" },
 
-                "Layers" to EditorToolSpec("Layers", "🥞") { currentTool = "Layers" },
+                "Layers" to EditorToolSpec("Layers", "🥞") {
+                    currentTool = "Layers"
+                    isPanelHidden = false
+                    isPanelMinimized = false
+                    showRightLayerPanel = true
+                    notice = "Pinalitaw ang Floating Layers Panel."
+                },
 
                 "Speech Bubbles" to EditorToolSpec("Bubbles", "💬") {
 
@@ -7583,74 +7232,378 @@ private fun StickerEditorScreen(
         }
     }
 
+    layerSettingsTargetIndex?.let { idx ->
+        if (idx in 0..layers.lastIndex) {
+            val targetLayer = layers[idx]
+            AlertDialog(
+                onDismissRequest = { layerSettingsTargetIndex = null },
+                title = { Text("Layer Properties: ${targetLayer.name}") },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // Opacity Slider
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Opacity ${(targetLayer.alpha * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.width(8.dp))
+                            Slider(
+                                value = targetLayer.alpha,
+                                onValueChange = { targetLayer.alpha = it; canvasVersion++ },
+                                valueRange = 0f..1f,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        // Control Chips Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilterChip(
+                                selected = targetLayer.isLocked,
+                                onClick = { targetLayer.isLocked = !targetLayer.isLocked; canvasVersion++ },
+                                label = { Text(if (targetLayer.isLocked) "🔒 Locked" else "🔓 Unlocked", fontSize = 11.sp) }
+                            )
+
+                            FilterChip(
+                                selected = false,
+                                onClick = { targetLayer.rotation = (targetLayer.rotation + 90f) % 360f; canvasVersion++ },
+                                label = { Text("🔄 Rotate 90°", fontSize = 11.sp) }
+                            )
+
+                            FilterChip(
+                                selected = false,
+                                onClick = { targetLayer.scale = -targetLayer.scale; canvasVersion++ },
+                                label = { Text("↔ Flip H", fontSize = 11.sp) }
+                            )
+
+                            FilterChip(
+                                selected = false,
+                                onClick = { targetLayer.offsetX = 0f; targetLayer.offsetY = 0f; canvasVersion++ },
+                                label = { Text("🎯 Center", fontSize = 11.sp) }
+                            )
+
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    renameLayerTargetIndex = idx
+                                    renameLayerInputText = targetLayer.name
+                                    layerSettingsTargetIndex = null
+                                },
+                                label = { Text("📝 Rename", fontSize = 11.sp) }
+                            )
+
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    snapshot()
+                                    val dup = StickerEditorLayer("${targetLayer.name} Copy", targetLayer.bitmap.copy(Bitmap.Config.ARGB_8888, true)).apply {
+                                        visible = targetLayer.visible
+                                        isLocked = false
+                                        scale = targetLayer.scale
+                                        rotation = targetLayer.rotation
+                                        offsetX = targetLayer.offsetX + 20f
+                                        offsetY = targetLayer.offsetY + 20f
+                                        alpha = targetLayer.alpha
+                                    }
+                                    layers.add(dup)
+                                    activeLayer = layers.lastIndex
+                                    canvasVersion++
+                                    layerSettingsTargetIndex = null
+                                },
+                                label = { Text("📋 Duplicate", fontSize = 11.sp) }
+                            )
+
+                            FilterChip(
+                                selected = false,
+                                onClick = {
+                                    if (layers.size > 1) {
+                                        snapshot()
+                                        layers.removeAt(idx)
+                                        activeLayer = layers.lastIndex.coerceAtLeast(0)
+                                        canvasVersion++
+                                    }
+                                    layerSettingsTargetIndex = null
+                                },
+                                label = { Text("🗑 Delete", fontSize = 11.sp, color = editorRed) }
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { layerSettingsTargetIndex = null },
+                        colors = ButtonDefaults.buttonColors(containerColor = editorRed)
+                    ) { Text("Done") }
+                }
+            )
+        }
+    }
+
 
 
     if (textDialog) {
+        val isEditing = editingTextLayer != null
+        val dialogTitle = if (isEditing) "Edit Text Layer" else "Add Text Layer"
+
+        val livePreviewBmp = remember(
+            layerText, textFontFamily, textFontStyle, textAlignName,
+            textFontSizeSp, textColorIndex, textOutlineColorIndex,
+            textOutlineThicknessPx, hasTextShadow, textLetterSpacingEm
+        ) {
+            createTextStickerBitmap(
+                text = if (layerText.isBlank()) "Preview Text" else layerText,
+                fontFamily = textFontFamily,
+                fontStyle = textFontStyle,
+                textColorInt = palette[textColorIndex.coerceIn(0, palette.lastIndex)],
+                outlineColorInt = palette[textOutlineColorIndex.coerceIn(0, palette.lastIndex)],
+                textSizeSp = textFontSizeSp,
+                textAlignName = textAlignName,
+                outlineThicknessPx = textOutlineThicknessPx,
+                hasShadow = hasTextShadow,
+                letterSpacingEm = textLetterSpacingEm
+            )
+        }
 
         AlertDialog(
-
-            onDismissRequest = { textDialog = false },
-
-            title = { Text("Add Text Layer") },
-
-            text = {
-
-                OutlinedTextField(
-
-                    value = layerText,
-
-                    onValueChange = { layerText = it },
-
-                    label = { Text("Your text") },
-
-                    singleLine = true
-
-                )
-
+            onDismissRequest = {
+                textDialog = false
+                editingTextLayer = null
             },
-
-            confirmButton = {
-
-                TextButton(onClick = {
-
-                    if (layerText.isNotBlank()) {
-
-                        val bitmap = Bitmap.createBitmap(512, 256, Bitmap.Config.ARGB_8888)
-
-                        val canvas = Canvas(bitmap)
-
-                        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-
-                            color = palette[colorIndex]
-
-                            textSize = 64f
-
-                            textAlign = Paint.Align.CENTER
-
-                            typeface = Typeface.DEFAULT_BOLD
-
-                        }
-
-                        canvas.drawText(layerText, 256f, 140f, paint)
-
-                        addBitmap("Text: $layerText", bitmap)
-
-                        currentTool = "Move"
-
-                        layerText = ""
-
+            title = { Text(dialogTitle, fontWeight = FontWeight.Bold, color = editorRed) },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Live Preview Box
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF1E182E)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Checkerboard(Modifier.matchParentSize())
+                        Image(
+                            bitmap = livePreviewBmp.asImageBitmap(),
+                            contentDescription = "Text Preview",
+                            modifier = Modifier.fillMaxSize().padding(8.dp)
+                        )
                     }
 
-                    textDialog = false
+                    Spacer(Modifier.height(12.dp))
 
-                }) { Text("Add") }
+                    OutlinedTextField(
+                        value = layerText,
+                        onValueChange = { layerText = it },
+                        label = { Text("Your Text") },
+                        singleLine = false,
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
+                    Spacer(Modifier.height(10.dp))
+
+                    Text("Font Family:", fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Sans Serif", "Serif", "Monospace", "Handwriting", "Sans Serif Medium", "Sans Serif Condensed", "Sans Serif Black").forEach { font ->
+                            FilterChip(
+                                selected = textFontFamily == font,
+                                onClick = { textFontFamily = font },
+                                label = { Text(font, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text("Font Style:", fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Regular", "Bold", "Italic", "Bold Italic").forEach { style ->
+                            FilterChip(
+                                selected = textFontStyle == style,
+                                onClick = { textFontStyle = style },
+                                label = { Text(style, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text("Alignment:", fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Left", "Center", "Right").forEach { align ->
+                            FilterChip(
+                                selected = textAlignName == align,
+                                onClick = { textAlignName = align },
+                                label = { Text(align, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text("Text Color:", fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        palette.forEachIndexed { idx, color ->
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(color))
+                                    .border(if (textColorIndex == idx) 2.dp else 0.dp, editorRed, CircleShape)
+                                    .clickable { textColorIndex = idx }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Text("Outline Color:", fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        palette.forEachIndexed { idx, color ->
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(color))
+                                    .border(if (textOutlineColorIndex == idx) 2.dp else 0.dp, editorRed, CircleShape)
+                                    .clickable { textOutlineColorIndex = idx }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Font Size: ${textFontSizeSp.toInt()}sp", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(8.dp))
+                        Slider(
+                            value = textFontSizeSp,
+                            onValueChange = { textFontSizeSp = it },
+                            valueRange = 20f..80f,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Outline: ${textOutlineThicknessPx.toInt()}px", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(8.dp))
+                        Slider(
+                            value = textOutlineThicknessPx,
+                            onValueChange = { textOutlineThicknessPx = it },
+                            valueRange = 0f..24f,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilterChip(
+                            selected = hasTextShadow,
+                            onClick = { hasTextShadow = !hasTextShadow },
+                            label = { Text(if (hasTextShadow) "✨ Shadow Enabled" else "Shadow Disabled", fontSize = 11.sp) }
+                        )
+                    }
+                }
             },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (layerText.isNotBlank()) {
+                            val bmp = createTextStickerBitmap(
+                                text = layerText,
+                                fontFamily = textFontFamily,
+                                fontStyle = textFontStyle,
+                                textColorInt = palette[textColorIndex.coerceIn(0, palette.lastIndex)],
+                                outlineColorInt = palette[textOutlineColorIndex.coerceIn(0, palette.lastIndex)],
+                                textSizeSp = textFontSizeSp,
+                                textAlignName = textAlignName,
+                                outlineThicknessPx = textOutlineThicknessPx,
+                                hasShadow = hasTextShadow,
+                                letterSpacingEm = textLetterSpacingEm
+                            )
 
-            dismissButton = { TextButton(onClick = { textDialog = false }) { Text("Cancel") } }
-
+                            val target = editingTextLayer
+                            if (target != null) {
+                                snapshot()
+                                target.bitmap = bmp
+                                target.name = "Text: $layerText"
+                                target.updateVisibleBounds()
+                                target.textFontFamily = textFontFamily
+                                target.textFontStyle = textFontStyle
+                                target.textAlignName = textAlignName
+                                target.textFontSizeSp = textFontSizeSp
+                                target.textColorIndex = textColorIndex
+                                target.textOutlineColorIndex = textOutlineColorIndex
+                                target.textOutlineThicknessPx = textOutlineThicknessPx
+                                target.textLetterSpacingEm = textLetterSpacingEm
+                                target.hasTextShadow = hasTextShadow
+                                canvasVersion++
+                                notice = "Na-update ang Text layer!"
+                                Toast.makeText(context, "Text layer updated!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                addBitmap("Text: $layerText", bmp)
+                                val newLayer = layers.lastOrNull()
+                                if (newLayer != null) {
+                                    newLayer.textFontFamily = textFontFamily
+                                    newLayer.textFontStyle = textFontStyle
+                                    newLayer.textAlignName = textAlignName
+                                    newLayer.textFontSizeSp = textFontSizeSp
+                                    newLayer.textColorIndex = textColorIndex
+                                    newLayer.textOutlineColorIndex = textOutlineColorIndex
+                                    newLayer.textOutlineThicknessPx = textOutlineThicknessPx
+                                    newLayer.textLetterSpacingEm = textLetterSpacingEm
+                                    newLayer.hasTextShadow = hasTextShadow
+                                }
+                                notice = "Naidagdag ang Text layer!"
+                            }
+                            layerText = ""
+                            editingTextLayer = null
+                            textDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = editorRed)
+                ) {
+                    Text(if (isEditing) "Save Changes" else "Add Text", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = {
+                    textDialog = false
+                    editingTextLayer = null
+                }) { Text("Cancel") }
+            }
         )
-
     }
 
 
@@ -7841,41 +7794,14 @@ private fun StickerEditorScreen(
 
 
 
-                    // Large Preview Box with Light Checkerboard
-
-                    Box(
-
+                    // Large Zoomable Preview Box
+                    ZoomablePreviewBox(
+                        bitmap = mainPreviewBmp,
+                        contentDescription = "Speech Bubble Preview",
                         modifier = Modifier
-
                             .fillMaxWidth()
-
                             .height(170.dp)
-
-                            .clip(RoundedCornerShape(16.dp))
-
-                            .background(Color(0xFFF0EBFE)),
-
-                        contentAlignment = Alignment.Center
-
-                    ) {
-
-                        Checkerboard(Modifier.matchParentSize())
-
-                        Image(
-
-                            bitmap = mainPreviewBmp.asImageBitmap(),
-
-                            contentDescription = "Speech Bubble Preview",
-
-                            modifier = Modifier
-
-                                .fillMaxSize()
-
-                                .padding(8.dp)
-
-                        )
-
-                    }
+                    )
 
 
 
@@ -8104,407 +8030,258 @@ private fun StickerEditorScreen(
 
 
                     OutlinedTextField(
-
                         value = bubbleText,
-
                         onValueChange = { bubbleText = it },
-
                         label = { Text("Bubble Text") },
-
                         singleLine = false,
-
                         maxLines = 3,
-
                         modifier = Modifier.fillMaxWidth()
-
                     )
 
+                    Spacer(Modifier.height(10.dp))
 
+                    Text("Font Family:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Sans Serif", "Serif", "Monospace", "Handwriting", "Sans Serif Medium", "Sans Serif Condensed", "Sans Serif Black").forEach { font ->
+                            FilterChip(
+                                selected = bubbleFontFamily == font,
+                                onClick = { bubbleFontFamily = font },
+                                label = { Text(font, fontSize = 11.sp) }
+                            )
+                        }
+                    }
 
                     Spacer(Modifier.height(10.dp))
 
+                    Text("Font Style:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Regular", "Bold", "Italic", "Bold Italic").forEach { style ->
+                            FilterChip(
+                                selected = bubbleFontStyle == style,
+                                onClick = { bubbleFontStyle = style },
+                                label = { Text(style, fontSize = 11.sp) }
+                            )
+                        }
+                    }
 
+                    Spacer(Modifier.height(10.dp))
+
+                    Text("Text Alignment:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
+                    Spacer(Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("Left", "Center", "Right").forEach { align ->
+                            FilterChip(
+                                selected = bubbleTextAlignName == align,
+                                onClick = { bubbleTextAlignName = align },
+                                label = { Text(align, fontSize = 11.sp) }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
 
                     Text("Tail Direction:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
-
                     Spacer(Modifier.height(4.dp))
-
                     Row(
-
                         modifier = Modifier
-
                             .fillMaxWidth()
-
                             .horizontalScroll(rememberScrollState()),
-
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
-
                     ) {
-
                         tailDirections.forEach { dir ->
-
                             FilterChip(
-
                                 selected = bubbleTailDirection == dir,
-
                                 onClick = { bubbleTailDirection = dir },
-
                                 label = { Text(dir, fontSize = 11.sp) }
-
                             )
-
                         }
-
                     }
 
-
-
                     Spacer(Modifier.height(10.dp))
-
-
 
                     Text("Text Color:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
-
                     Spacer(Modifier.height(4.dp))
-
                     Row(
-
                         modifier = Modifier
-
                             .fillMaxWidth()
-
                             .horizontalScroll(rememberScrollState()),
-
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
-
                     ) {
-
                         palette.forEachIndexed { idx, color ->
-
                             Box(
-
                                 modifier = Modifier
-
                                     .size(26.dp)
-
                                     .clip(CircleShape)
-
                                     .background(Color(color))
-
                                     .border(if (bubbleTextColorIndex == idx) 2.dp else 0.dp, Color(0xFF8B5CF6), CircleShape)
-
                                     .clickable { bubbleTextColorIndex = idx }
-
                             )
-
                         }
-
                     }
 
-
-
                     Spacer(Modifier.height(10.dp))
-
-
 
                     Text("Fill Color:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
-
                     Spacer(Modifier.height(4.dp))
-
                     Row(
-
                         modifier = Modifier
-
                             .fillMaxWidth()
-
                             .horizontalScroll(rememberScrollState()),
-
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
-
                     ) {
-
                         palette.forEachIndexed { idx, color ->
-
                             Box(
-
                                 modifier = Modifier
-
                                     .size(26.dp)
-
                                     .clip(CircleShape)
-
                                     .background(Color(color))
-
                                     .border(if (bubbleFillColorIndex == idx) 2.dp else 0.dp, Color(0xFF8B5CF6), CircleShape)
-
                                     .clickable { bubbleFillColorIndex = idx }
-
                             )
-
                         }
-
                     }
 
-
-
                     Spacer(Modifier.height(10.dp))
-
-
 
                     Text("Outline Color:", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start))
-
                     Spacer(Modifier.height(4.dp))
-
                     Row(
-
                         modifier = Modifier
-
                             .fillMaxWidth()
-
                             .horizontalScroll(rememberScrollState()),
-
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
-
                     ) {
-
                         palette.forEachIndexed { idx, color ->
-
                             Box(
-
                                 modifier = Modifier
-
                                     .size(26.dp)
-
                                     .clip(CircleShape)
-
                                     .background(Color(color))
-
                                     .border(if (bubbleStrokeColorIndex == idx) 2.dp else 0.dp, Color(0xFF8B5CF6), CircleShape)
-
                                     .clickable { bubbleStrokeColorIndex = idx }
-
                             )
-
                         }
-
                     }
-
-
 
                     Spacer(Modifier.height(10.dp))
 
-
-
                     Row(verticalAlignment = Alignment.CenterVertically) {
-
                         Text("Font Size: ${bubbleTextSizeSp.toInt()}sp", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold)
-
                         Spacer(Modifier.width(8.dp))
-
                         Slider(
-
                             value = bubbleTextSizeSp,
-
                             onValueChange = { bubbleTextSizeSp = it },
-
                             valueRange = 18f..60f,
-
                             modifier = Modifier.weight(1f)
-
                         )
-
                     }
 
-
-
                     Row(verticalAlignment = Alignment.CenterVertically) {
-
                         Text("Outline Thickness: ${bubbleOutlineThicknessSp.toInt()}px", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold)
-
                         Spacer(Modifier.width(8.dp))
-
                         Slider(
-
                             value = bubbleOutlineThicknessSp,
-
                             onValueChange = { bubbleOutlineThicknessSp = it },
-
                             valueRange = 2f..24f,
-
                             modifier = Modifier.weight(1f)
-
                         )
-
                     }
-
-
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-
                         Text("Opacity: ${(bubbleOpacityAlpha * 100).toInt()}%", fontSize = 11.sp, color = Color(0xFF2E1065), fontWeight = FontWeight.Bold)
-
                         Spacer(Modifier.width(8.dp))
-
                         Slider(
-
                             value = bubbleOpacityAlpha,
-
                             onValueChange = { bubbleOpacityAlpha = it },
-
                             valueRange = 0.2f..1.0f,
-
                             modifier = Modifier.weight(1f)
-
                         )
-
                     }
-
-
 
                     Spacer(Modifier.height(16.dp))
 
-
-
                     // Primary Add / Update Button
-
                     Button(
-
                         onClick = {
-
                             val bmp = createSpeechBubbleBitmap(
-
                                 bubbleStyle = selectedBubbleStyle,
-
                                 text = bubbleText,
-
                                 textColorInt = palette[bubbleTextColorIndex],
-
                                 textSizeSp = bubbleTextSizeSp,
-
                                 fillColorInt = palette[bubbleFillColorIndex],
-
                                 strokeColorInt = palette[bubbleStrokeColorIndex],
-
                                 strokeThicknessPx = bubbleOutlineThicknessSp,
-
                                 opacityAlpha = bubbleOpacityAlpha,
-
-                                tailDirection = bubbleTailDirection
-
+                                tailDirection = bubbleTailDirection,
+                                fontFamily = bubbleFontFamily,
+                                fontStyle = bubbleFontStyle,
+                                textAlignName = bubbleTextAlignName
                             )
 
-
-
                             val target = editingSpeechBubbleLayer
-
                             if (target != null) {
-
                                 snapshot()
-
                                 target.bitmap = bmp
-
                                 target.name = "Speech Bubble: $bubbleText"
-
                                 target.updateVisibleBounds()
-
                                 target.isSpeechBubble = true
-
                                 target.bubbleStyle = selectedBubbleStyle
-
                                 target.bubbleText = bubbleText
-
                                 target.bubbleTextColorIndex = bubbleTextColorIndex
-
                                 target.bubbleFillColorIndex = bubbleFillColorIndex
-
                                 target.bubbleStrokeColorIndex = bubbleStrokeColorIndex
-
                                 target.bubbleTextSizeSp = bubbleTextSizeSp
-
                                 target.bubbleOutlineThicknessSp = bubbleOutlineThicknessSp
-
                                 target.bubbleOpacityAlpha = bubbleOpacityAlpha
-
                                 target.bubbleTailDirection = bubbleTailDirection
-
+                                target.bubbleFontFamily = bubbleFontFamily
+                                target.bubbleFontStyle = bubbleFontStyle
+                                target.bubbleTextAlignName = bubbleTextAlignName
                                 canvasVersion++
-
                                 notice = "Na-update ang Speech Bubble text!"
-
                                 Toast.makeText(context, "Speech Bubble updated!", Toast.LENGTH_SHORT).show()
-
                             } else {
-
                                 addBitmap("Speech Bubble: $bubbleText", bmp)
-
                                 val newLayer = layers.lastOrNull()
-
                                 if (newLayer != null) {
-
                                     newLayer.isSpeechBubble = true
-
                                     newLayer.bubbleStyle = selectedBubbleStyle
-
                                     newLayer.bubbleText = bubbleText
-
                                     newLayer.bubbleTextColorIndex = bubbleTextColorIndex
-
                                     newLayer.bubbleFillColorIndex = bubbleFillColorIndex
-
                                     newLayer.bubbleStrokeColorIndex = bubbleStrokeColorIndex
-
                                     newLayer.bubbleTextSizeSp = bubbleTextSizeSp
-
                                     newLayer.bubbleOutlineThicknessSp = bubbleOutlineThicknessSp
-
                                     newLayer.bubbleOpacityAlpha = bubbleOpacityAlpha
-
                                     newLayer.bubbleTailDirection = bubbleTailDirection
-
+                                    newLayer.bubbleFontFamily = bubbleFontFamily
+                                    newLayer.bubbleFontStyle = bubbleFontStyle
+                                    newLayer.bubbleTextAlignName = bubbleTextAlignName
                                 }
-
+                                notice = "Naidagdag ang Speech Bubble!"
                             }
-
-                            currentTool = "Move"
-
+                            editingSpeechBubbleLayer = null
                             speechBubbleDialog = false
-
                         },
-
-                        modifier = Modifier
-
-                            .fillMaxWidth()
-
-                            .height(50.dp),
-
-                        shape = RoundedCornerShape(25.dp),
-
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6))
-
                     ) {
-
-                        Text(
-
-                            text = if (editingSpeechBubbleLayer != null) "💾 Update Speech Bubble" else "💬＋ Add Speech Bubble",
-
-                            fontSize = 15.sp,
-
-                            fontWeight = FontWeight.Bold,
-
-                            color = Color.White
-
-                        )
-
+                        Text(if (editingSpeechBubbleLayer != null) "Save Changes" else "Add Speech Bubble", fontWeight = FontWeight.Bold)
                     }
-
-
 
                     Spacer(Modifier.height(8.dp))
 
-
-
                     // Secondary Cancel Button
-
                     OutlinedButton(
 
                         onClick = { speechBubbleDialog = false },
@@ -9529,72 +9306,74 @@ fun TextStickerScreen(
     }
 }
 
-fun createTextStickerBitmap(text: String): Bitmap {
-
-    val bitmap = Bitmap.createBitmap(
-
-        512,
-
-        256,
-
-        Bitmap.Config.ARGB_8888
-
-    )
-
-
-
+fun createTextStickerBitmap(
+    text: String,
+    fontFamily: String = "Sans Serif",
+    fontStyle: String = "Bold",
+    textColorInt: Int = AndroidColor.RED,
+    outlineColorInt: Int = AndroidColor.WHITE,
+    textSizeSp: Float = 48f,
+    textAlignName: String = "Center",
+    outlineThicknessPx: Float = 10f,
+    hasShadow: Boolean = true,
+    letterSpacingEm: Float = 0f,
+    bitmapWidth: Int = 512,
+    bitmapHeight: Int = 256
+): Bitmap {
+    val bitmap = Bitmap.createBitmap(bitmapWidth, bitmapHeight, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
 
-
-
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-
-        textAlign = Paint.Align.CENTER
-
-        typeface = Typeface.create(
-
-            "sans-serif-black",
-
-            Typeface.BOLD
-
-        )
-
-        textSize = (180f / text.length.coerceAtLeast(1))
-
-            .coerceIn(28f, 100f)
-
-        strokeJoin = Paint.Join.ROUND
-
+    val tf = resolveTypeface(fontFamily, fontStyle)
+    val align = when (textAlignName) {
+        "Left" -> Paint.Align.LEFT
+        "Right" -> Paint.Align.RIGHT
+        else -> Paint.Align.CENTER
     }
 
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = align
+        typeface = tf
+        textSize = textSizeSp * 1.25f
+        strokeJoin = Paint.Join.ROUND
+        if (letterSpacingEm != 0f) {
+            letterSpacing = letterSpacingEm
+        }
+    }
 
+    val x = when (align) {
+        Paint.Align.LEFT -> 32f
+        Paint.Align.RIGHT -> bitmapWidth - 32f
+        else -> bitmapWidth / 2f
+    }
 
-    val x = bitmap.width / 2f
+    val lines = text.split("\n")
+    val lineSpacing = paint.textSize * 1.25f
+    val startY = bitmapHeight / 2f - ((lines.size - 1) * lineSpacing / 2f) + (paint.textSize / 3f)
 
-    val y = bitmap.height / 2f + paint.textSize / 3f
+    lines.forEachIndexed { idx, line ->
+        val y = startY + (idx * lineSpacing)
 
+        if (hasShadow) {
+            paint.style = Paint.Style.FILL
+            paint.color = AndroidColor.parseColor("#88000000")
+            paint.setShadowLayer(8f, 3f, 3f, AndroidColor.parseColor("#88000000"))
+            canvas.drawText(line, x + 2f, y + 2f, paint)
+            paint.clearShadowLayer()
+        }
 
+        if (outlineThicknessPx > 0f) {
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = outlineThicknessPx
+            paint.color = outlineColorInt
+            canvas.drawText(line, x, y, paint)
+        }
 
-    paint.style = Paint.Style.STROKE
-
-    paint.strokeWidth = 12f
-
-    paint.color = AndroidColor.WHITE
-
-    canvas.drawText(text, x, y, paint)
-
-
-
-    paint.style = Paint.Style.FILL
-
-    paint.color = AndroidColor.RED
-
-    canvas.drawText(text, x, y, paint)
-
-
+        paint.style = Paint.Style.FILL
+        paint.color = textColorInt
+        canvas.drawText(line, x, y, paint)
+    }
 
     return bitmap
-
 }
 
 
