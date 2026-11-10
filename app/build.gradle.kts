@@ -49,6 +49,9 @@ android {
             useLegacyPackaging = false
         }
     }
+    androidResources {
+        noCompress += "tflite"
+    }
     sourceSets {
         getByName("main") {
             assets {
@@ -76,7 +79,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
-    implementation("com.google.mediapipe:tasks-vision:latest.release")
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
     implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta6")
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 

@@ -4,6 +4,9 @@
         name="stickers"
         path="." />
     <cache-path
-        name="shared_packs"
-        path="shared_packs/" />
+        name="cache"
+        path="." />
+    <external-files-path
+        name="external_files"
+        path="." />
 </paths>

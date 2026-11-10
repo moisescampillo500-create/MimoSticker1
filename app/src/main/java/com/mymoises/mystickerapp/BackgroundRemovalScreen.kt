@@ -1,5 +1,9 @@
 package com.mymoises.mystickerapp
 
+import com.mymoises.mystickerapp.util.loadMyStickerFiles
+import com.mymoises.mystickerapp.util.saveMyStickerBitmap
+
+import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -87,19 +91,27 @@ fun BackgroundRemovalScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val subjectSegmenter = remember {
-        SubjectSegmentation.getClient(
-            SubjectSegmenterOptions.Builder()
-                .enableForegroundBitmap()
-                .enableForegroundConfidenceMask()
-                .build()
-        )
+        try {
+            SubjectSegmentation.getClient(
+                SubjectSegmenterOptions.Builder()
+                    .enableForegroundBitmap()
+                    .enableForegroundConfidenceMask()
+                    .build()
+            )
+        } catch (_: Throwable) {
+            null
+        }
     }
     val selfieSegmenter = remember {
-        Segmentation.getClient(
-            SelfieSegmenterOptions.Builder()
-                .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
-                .build()
-        )
+        try {
+            Segmentation.getClient(
+                SelfieSegmenterOptions.Builder()
+                    .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
+                    .build()
+            )
+        } catch (_: Throwable) {
+            null
+        }
     }
     var result by remember { mutableStateOf<Bitmap?>(null) }
     var cutout by remember { mutableStateOf<Bitmap?>(null) }
@@ -110,13 +122,14 @@ fun BackgroundRemovalScreen(
     var eraserSizeDp by remember { mutableFloatStateOf(32f) }
     var editRevision by remember { mutableIntStateOf(0) }
     var savedStickerPath by remember { mutableStateOf<String?>(null) }
+    var rewardedAdOfferSpec by remember { mutableStateOf<RewardedAdOfferSpec?>(null) }
     var originalCutout by remember { mutableStateOf<Bitmap?>(null) }
     val undoHistory = remember { mutableStateListOf<EraserSnapshot>() }
 
     DisposableEffect(subjectSegmenter, selfieSegmenter) {
         onDispose {
-            subjectSegmenter.close()
-            selfieSegmenter.close()
+            try { subjectSegmenter?.close() } catch (_: Throwable) {}
+            try { selfieSegmenter?.close() } catch (_: Throwable) {}
         }
     }
 
@@ -138,26 +151,33 @@ fun BackgroundRemovalScreen(
                     var transparentCutout: Bitmap? = null
                     var foundSubject = false
 
-                    try {
-                        val subjectResult = subjectSegmenter.processSuspending(inputImage)
-                        val fgBitmap = subjectResult.foregroundBitmap
-                        if (fgBitmap != null) {
-                            transparentCutout = fgBitmap.copy(Bitmap.Config.ARGB_8888, true)
-                            foundSubject = true
-                        } else {
-                            val maskBuffer = subjectResult.foregroundConfidenceMask
-                            if (maskBuffer != null) {
-                                transparentCutout = applyConfidenceMaskBuffer(bitmap, maskBuffer, bitmap.width, bitmap.height)
+                    val seg = subjectSegmenter
+                    if (seg != null) {
+                        try {
+                            val subjectResult = seg.processSuspending(inputImage)
+                            val fgBitmap = subjectResult.foregroundBitmap
+                            if (fgBitmap != null) {
+                                transparentCutout = fgBitmap.copy(Bitmap.Config.ARGB_8888, true)
                                 foundSubject = true
+                            } else {
+                                val maskBuffer = subjectResult.foregroundConfidenceMask
+                                if (maskBuffer != null) {
+                                    transparentCutout = applyConfidenceMaskBuffer(bitmap, maskBuffer, bitmap.width, bitmap.height)
+                                    foundSubject = true
+                                }
                             }
-                        }
-                    } catch (_: Exception) {
-                        runCatching {
-                            val mask = selfieSegmenter.processSuspending(inputImage)
-                            val (selfieCutout, foundPerson) = applySegmentationMask(bitmap, mask)
-                            if (foundPerson) {
-                                transparentCutout = selfieCutout
-                                foundSubject = true
+                        } catch (_: Exception) {}
+                    }
+                    if (!foundSubject) {
+                        val selfie = selfieSegmenter
+                        if (selfie != null) {
+                            runCatching {
+                                val mask = selfie.processSuspending(inputImage)
+                                val (selfieCutout, foundPerson) = applySegmentationMask(bitmap, mask)
+                                if (foundPerson) {
+                                    transparentCutout = selfieCutout
+                                    foundSubject = true
+                                }
                             }
                         }
                     }
@@ -176,14 +196,16 @@ fun BackgroundRemovalScreen(
                         }
                         result = transparent
                         if (autoSave) {
-                            val savedPath = saveStickerResult(context, transparent, null)
-                            if (savedPath != null) {
-                                savedStickerPath = savedPath
-                                onStickerSaved()
-                                message = "Background removed and sticker saved."
-                                Toast.makeText(context, "Transparent sticker saved!", Toast.LENGTH_SHORT).show()
-                            } else {
-                                message = "Background removed. Tap Save Sticker to save it."
+                            rewardedAdOfferSpec = RewardedAdOfferSpec("Save Image") {
+                                val savedPath = saveStickerResult(context, transparent, null)
+                                if (savedPath != null) {
+                                    savedStickerPath = savedPath
+                                    onStickerSaved()
+                                    message = "Background removed and sticker saved."
+                                    Toast.makeText(context, "Transparent sticker saved!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    message = "Background removed. Tap Save Sticker to save it."
+                                }
                             }
                         } else {
                             message = "Background removed. Preview your sticker, then save it."
@@ -217,27 +239,33 @@ fun BackgroundRemovalScreen(
                     var transparentCutout: Bitmap? = null
                     var foundSubject = false
 
-                    try {
-                        val subjectResult = subjectSegmenter.processSuspending(inputImage)
-                        val fgBitmap = subjectResult.foregroundBitmap
-                        if (fgBitmap != null) {
-                            transparentCutout = fgBitmap.copy(Bitmap.Config.ARGB_8888, true)
-                            foundSubject = true
-                        } else {
-                            val maskBuffer = subjectResult.foregroundConfidenceMask
-                            if (maskBuffer != null) {
-                                transparentCutout = applyConfidenceMaskBuffer(input, maskBuffer, input.width, input.height)
+                    val seg = subjectSegmenter
+                    if (seg != null) {
+                        try {
+                            val subjectResult = seg.processSuspending(inputImage)
+                            val fgBitmap = subjectResult.foregroundBitmap
+                            if (fgBitmap != null) {
+                                transparentCutout = fgBitmap.copy(Bitmap.Config.ARGB_8888, true)
                                 foundSubject = true
+                            } else {
+                                val maskBuffer = subjectResult.foregroundConfidenceMask
+                                if (maskBuffer != null) {
+                                    transparentCutout = applyConfidenceMaskBuffer(input, maskBuffer, input.width, input.height)
+                                    foundSubject = true
+                                }
                             }
-                        }
-                    } catch (_: Exception) {
-                        // Fallback to Selfie Segmenter
-                        runCatching {
-                            val mask = selfieSegmenter.processSuspending(inputImage)
-                            val (selfieCutout, foundPerson) = applySegmentationMask(input, mask)
-                            if (foundPerson) {
-                                transparentCutout = selfieCutout
-                                foundSubject = true
+                        } catch (_: Exception) {}
+                    }
+                    if (!foundSubject) {
+                        val selfie = selfieSegmenter
+                        if (selfie != null) {
+                            runCatching {
+                                val mask = selfie.processSuspending(inputImage)
+                                val (selfieCutout, foundPerson) = applySegmentationMask(input, mask)
+                                if (foundPerson) {
+                                    transparentCutout = selfieCutout
+                                    foundSubject = true
+                                }
                             }
                         }
                     }
@@ -256,14 +284,16 @@ fun BackgroundRemovalScreen(
                         }
                         result = transparent
                         if (autoSave) {
-                            val savedPath = saveStickerResult(context, transparent, null)
-                            if (savedPath != null) {
-                                savedStickerPath = savedPath
-                                onStickerSaved()
-                                message = "Background removed and sticker saved."
-                                Toast.makeText(context, "Transparent sticker saved!", Toast.LENGTH_SHORT).show()
-                            } else {
-                                message = "Background removed. Tap Save Sticker to save it."
+                            rewardedAdOfferSpec = RewardedAdOfferSpec("Save Image") {
+                                val savedPath = saveStickerResult(context, transparent, null)
+                                if (savedPath != null) {
+                                    savedStickerPath = savedPath
+                                    onStickerSaved()
+                                    message = "Background removed and sticker saved."
+                                    Toast.makeText(context, "Transparent sticker saved!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    message = "Background removed. Tap Save Sticker to save it."
+                                }
                             }
                         } else {
                             message = "Background removed. Preview your sticker, then save it."
@@ -444,18 +474,52 @@ fun BackgroundRemovalScreen(
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = {
-                    val savedPath = saveStickerResult(context, bitmap, savedStickerPath)
-                    if (savedPath != null) {
-                        savedStickerPath = savedPath
-                        onStickerSaved()
-                        message = "Sticker saved to My Stickers."
-                        Toast.makeText(context, "Sticker saved!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        message = "Unable to save the sticker. Please try again."
+                    rewardedAdOfferSpec = RewardedAdOfferSpec("Save Image") {
+                        val savedPath = saveStickerResult(context, bitmap, savedStickerPath)
+                        if (savedPath != null) {
+                            savedStickerPath = savedPath
+                            onStickerSaved()
+                            message = "Sticker saved to My Stickers."
+                            Toast.makeText(context, "Sticker saved!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            message = "Unable to save the sticker. Please try again."
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) { Text(if (savedStickerPath == null) "Save Sticker as PNG" else "Save Sticker Changes") }
+
+            rewardedAdOfferSpec?.let { spec ->
+                RewardedAdOfferDialog(
+                    actionType = spec.actionType,
+                    onWatchAd = {
+                        val currentSpec = spec
+                        rewardedAdOfferSpec = null
+                        val activity = context as? Activity
+                        if (activity != null) {
+                            if (AdMobRewardedAdManager.isAdAvailable()) {
+                                AdMobRewardedAdManager.showRewardedAd(
+                                    activity = activity,
+                                    onRewardGranted = {
+                                        currentSpec.onExecuteAction()
+                                    },
+                                    onAdClosed = { rewardEarned ->
+                                        if (!rewardEarned) {
+                                            Toast.makeText(context, "Ad completion required to continue.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                )
+                            } else {
+                                AdMobRewardedAdManager.loadAd(activity)
+                                Toast.makeText(context, "Ad is loading. Please try again in a moment.", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    onDismiss = {
+                        rewardedAdOfferSpec = null
+                    }
+                )
+            }
 
             Spacer(Modifier.height(8.dp))
             Button(
@@ -782,37 +846,45 @@ private fun applySegmentationMask(source: Bitmap, mask: SegmentationMask): Pair<
 }
 
 suspend fun performAutoBackgroundRemoval(context: Context, bitmap: Bitmap): Bitmap? = withContext(Dispatchers.Default) {
-    val subjectSegmenter = SubjectSegmentation.getClient(
-        SubjectSegmenterOptions.Builder()
-            .enableForegroundBitmap()
-            .enableForegroundConfidenceMask()
-            .build()
-    )
-    val selfieSegmenter = Segmentation.getClient(
-        SelfieSegmenterOptions.Builder()
-            .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
-            .build()
-    )
+    val subjectSegmenter = try {
+        SubjectSegmentation.getClient(
+            SubjectSegmenterOptions.Builder()
+                .enableForegroundBitmap()
+                .enableForegroundConfidenceMask()
+                .build()
+        )
+    } catch (_: Throwable) { null }
+
+    val selfieSegmenter = try {
+        Segmentation.getClient(
+            SelfieSegmenterOptions.Builder()
+                .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
+                .build()
+        )
+    } catch (_: Throwable) { null }
+
     try {
         val inputImage = InputImage.fromBitmap(bitmap, 0)
         var transparentCutout: Bitmap? = null
 
-        try {
-            val subjectResult = subjectSegmenter.processSuspending(inputImage)
-            val fgBitmap = subjectResult.foregroundBitmap
-            if (fgBitmap != null) {
-                transparentCutout = fgBitmap.copy(Bitmap.Config.ARGB_8888, true)
-            } else {
-                val maskBuffer = subjectResult.foregroundConfidenceMask
-                if (maskBuffer != null) {
-                    transparentCutout = applyConfidenceMaskBuffer(bitmap, maskBuffer, bitmap.width, bitmap.height)
+        if (subjectSegmenter != null) {
+            try {
+                val subjectResult = subjectSegmenter.processSuspending(inputImage)
+                val fgBitmap = subjectResult.foregroundBitmap
+                if (fgBitmap != null) {
+                    transparentCutout = fgBitmap.copy(Bitmap.Config.ARGB_8888, true)
+                } else {
+                    val maskBuffer = subjectResult.foregroundConfidenceMask
+                    if (maskBuffer != null) {
+                        transparentCutout = applyConfidenceMaskBuffer(bitmap, maskBuffer, bitmap.width, bitmap.height)
+                    }
                 }
+            } catch (_: Exception) {
+                // fallback
             }
-        } catch (_: Exception) {
-            // fallback
         }
 
-        if (transparentCutout == null) {
+        if (transparentCutout == null && selfieSegmenter != null) {
             runCatching {
                 val mask = selfieSegmenter.processSuspending(inputImage)
                 val (selfieCutout, foundPerson) = applySegmentationMask(bitmap, mask)
@@ -824,8 +896,8 @@ suspend fun performAutoBackgroundRemoval(context: Context, bitmap: Bitmap): Bitm
 
         transparentCutout
     } finally {
-        subjectSegmenter.close()
-        selfieSegmenter.close()
+        try { subjectSegmenter?.close() } catch (_: Throwable) {}
+        try { selfieSegmenter?.close() } catch (_: Throwable) {}
     }
 }
 

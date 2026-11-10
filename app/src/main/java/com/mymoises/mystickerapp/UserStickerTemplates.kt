@@ -7,6 +7,8 @@ import android.graphics.Canvas
 import android.graphics.Color as AndroidColor
 import android.graphics.Paint
 import android.graphics.Typeface
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -52,7 +54,71 @@ data class UserStickerTemplate(
     val layers: List<UserTemplateLayerData>
 )
 
+object BitmapCacheManager {
+    private val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
+    private val cacheSize = (maxMemory / 8).coerceAtLeast(1024 * 16)
+
+    private val memoryCache = object : android.util.LruCache<String, Bitmap>(cacheSize) {
+        override fun sizeOf(key: String, bitmap: Bitmap): Int {
+            return bitmap.byteCount / 1024
+        }
+    }
+
+    fun getBitmap(key: String): Bitmap? = memoryCache.get(key)
+
+    fun putBitmap(key: String, bitmap: Bitmap) {
+        if (getBitmap(key) == null && !bitmap.isRecycled) {
+            memoryCache.put(key, bitmap)
+        }
+    }
+
+    fun loadCachedBitmap(filePath: String, targetSizePx: Int = 512): Bitmap? {
+        val cached = getBitmap(filePath)
+        if (cached != null && !cached.isRecycled) return cached
+
+        val file = File(filePath)
+        if (!file.exists()) return null
+
+        return try {
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            BitmapFactory.decodeFile(filePath, options)
+
+            val srcW = options.outWidth
+            val srcH = options.outHeight
+            var sampleSize = 1
+            if (srcW > targetSizePx || srcH > targetSizePx) {
+                val halfW = srcW / 2
+                val halfH = srcH / 2
+                while ((halfW / sampleSize) >= targetSizePx && (halfH / sampleSize) >= targetSizePx) {
+                    sampleSize *= 2
+                }
+            }
+
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            }
+            val decoded = BitmapFactory.decodeFile(filePath, decodeOptions)
+            if (decoded != null) {
+                putBitmap(filePath, decoded)
+            }
+            decoded
+        } catch (_: Exception) {
+            null
+        }
+    }
+}
+
 object UserStickerTemplatesManager {
+
+    @Volatile
+    private var templateMemoryCache: List<UserStickerTemplate>? = null
+
+    fun invalidateCache() {
+        templateMemoryCache = null
+    }
 
     fun getUserTemplatesDirectory(context: Context): File {
         val dir = File(context.filesDir, "UserTemplates")
@@ -128,14 +194,24 @@ object UserStickerTemplatesManager {
 
             val jsonFile = File(templateDir, "template.json")
             jsonFile.writeText(rootObj.toString(2))
+            invalidateCache()
             true
         } catch (_: Exception) {
             false
         }
     }
 
-    fun getAllTemplates(context: Context): List<UserStickerTemplate> {
+    suspend fun asyncSeedTemplates(context: Context) = withContext(Dispatchers.IO) {
         seedCommunityTemplatesIfEmpty(context)
+        invalidateCache()
+    }
+
+    fun getAllTemplates(context: Context): List<UserStickerTemplate> {
+        val cached = templateMemoryCache
+        if (cached != null && cached.isNotEmpty()) {
+            return cached
+        }
+
         val baseDir = getUserTemplatesDirectory(context)
         val files = baseDir.listFiles() ?: return emptyList()
         val resultList = mutableListOf<UserStickerTemplate>()
@@ -202,6 +278,7 @@ object UserStickerTemplatesManager {
         }
 
         resultList.sortByDescending { it.createdAt }
+        templateMemoryCache = resultList
         return resultList
     }
 

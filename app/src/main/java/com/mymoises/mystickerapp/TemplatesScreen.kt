@@ -1,5 +1,9 @@
 package com.mymoises.mystickerapp
 
+import com.mymoises.mystickerapp.ui.components.Checkerboard
+import com.mymoises.mystickerapp.util.shareTemplateWithImage
+
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -12,6 +16,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -24,6 +30,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -540,8 +547,7 @@ private fun CommunityTemplateItemCard(
 ) {
     val context = LocalContext.current
     val previewBitmap = remember(template.previewPath) {
-        val file = File(template.previewPath)
-        if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+        BitmapCacheManager.loadCachedBitmap(template.previewPath, 384)
     }
 
     var likesCount by remember(template.id, template.likeCount) { mutableIntStateOf(template.likeCount) }
@@ -664,8 +670,7 @@ private fun MyTemplateItemCard(
     onDelete: () -> Unit
 ) {
     val previewBitmap = remember(template.previewPath) {
-        val file = File(template.previewPath)
-        if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+        BitmapCacheManager.loadCachedBitmap(template.previewPath, 384)
     }
 
     Card(
@@ -786,16 +791,19 @@ fun ZoomablePreviewBox(
 
     val zoomPercent = (scale * 100).roundToInt()
 
-    Box(
+    Row(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF1E182E))
-            .border(1.dp, Color(0xFF383248), RoundedCornerShape(16.dp)),
-        contentAlignment = Alignment.Center
+            .border(1.dp, Color(0xFF383248), RoundedCornerShape(16.dp))
+            .padding(4.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(12.dp))
                 .clipToBounds()
                 .pointerInput(Unit) {
                     detectTransformGestures { _, pan, zoom, _ ->
@@ -820,7 +828,7 @@ fun ZoomablePreviewBox(
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(8.dp)
+                        .padding(6.dp)
                         .graphicsLayer {
                             scaleX = scale
                             scaleY = scale
@@ -833,24 +841,50 @@ fun ZoomablePreviewBox(
             }
         }
 
-        // Floating Zoom Controls: [-] 100% [+] [Reset]
+        Spacer(Modifier.width(4.dp))
+
+        // Side Panel Zoom Controls (Gilid ng canvas)
         androidx.compose.material3.Surface(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 8.dp),
-            shape = RoundedCornerShape(20.dp),
+                .fillMaxHeight()
+                .padding(vertical = 2.dp),
+            shape = RoundedCornerShape(14.dp),
             color = Color(0xDD10143A),
             border = BorderStroke(1.dp, primaryRed)
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 6.dp, vertical = 6.dp)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.SpaceEvenly,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Zoom Out
+                // Zoom In (+)
                 Box(
                     modifier = Modifier
-                        .size(26.dp)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF2A2438))
+                        .clickable {
+                            scale = (scale * 1.25f).coerceAtMost(5.0f)
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+
+                // Percentage Indicator
+                Text(
+                    text = "$zoomPercent%",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Zoom Out (-)
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
                         .clip(CircleShape)
                         .background(Color(0xFF2A2438))
                         .clickable {
@@ -865,43 +899,21 @@ fun ZoomablePreviewBox(
                     Text("−", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
 
-                // Percentage Indicator
-                Text(
-                    text = "$zoomPercent%",
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                // Zoom In
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF2A2438))
-                        .clickable {
-                            scale = (scale * 1.25f).coerceAtMost(5.0f)
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("+", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                }
-
                 // Reset
                 if (scale != 1.0f || offsetX != 0f || offsetY != 0f) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .background(primaryRed)
                             .clickable {
                                 scale = 1.0f
                                 offsetX = 0f
                                 offsetY = 0f
                             }
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("Reset", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("Reset", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -917,9 +929,9 @@ fun TemplatePreviewDialog(
     onUseTemplate: (UserStickerTemplate) -> Unit
 ) {
     val context = LocalContext.current
+    var rewardedAdOfferSpec by remember { mutableStateOf<RewardedAdOfferSpec?>(null) }
     val previewBitmap = remember(template.previewPath) {
-        val file = File(template.previewPath)
-        if (file.exists()) BitmapFactory.decodeFile(file.absolutePath) else null
+        BitmapCacheManager.loadCachedBitmap(template.previewPath, 512)
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -1043,13 +1055,9 @@ fun TemplatePreviewDialog(
 
                     OutlinedButton(
                         onClick = {
-                            val shareText = "Check out the '${template.name}' sticker template by @${template.creatorName} on Sticker Craft! 🎨 Download and customize it now!"
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT, "Sticker Template: ${template.name}")
-                                putExtra(Intent.EXTRA_TEXT, shareText)
+                            rewardedAdOfferSpec = RewardedAdOfferSpec("Share Template") {
+                                shareTemplateWithImage(context, template.name, template.creatorName, template.previewPath)
                             }
-                            context.startActivity(Intent.createChooser(intent, "Share Template"))
                         },
                         shape = RoundedCornerShape(24.dp),
                         border = BorderStroke(1.dp, softPink)
@@ -1076,6 +1084,38 @@ fun TemplatePreviewDialog(
                         onUseTemplate = { selected ->
                             showCreatorProfile = false
                             onUseTemplate(selected)
+                        }
+                    )
+                }
+
+                rewardedAdOfferSpec?.let { spec ->
+                    RewardedAdOfferDialog(
+                        actionType = spec.actionType,
+                        onWatchAd = {
+                            val currentSpec = spec
+                            rewardedAdOfferSpec = null
+                            val activity = context as? Activity
+                            if (activity != null) {
+                                if (AdMobRewardedAdManager.isAdAvailable()) {
+                                    AdMobRewardedAdManager.showRewardedAd(
+                                        activity = activity,
+                                        onRewardGranted = {
+                                            currentSpec.onExecuteAction()
+                                        },
+                                        onAdClosed = { rewardEarned ->
+                                            if (!rewardEarned) {
+                                                Toast.makeText(context, "Ad completion required to continue.", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                } else {
+                                    AdMobRewardedAdManager.loadAd(activity)
+                                    Toast.makeText(context, "Ad is loading. Please try again in a moment.", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        onDismiss = {
+                            rewardedAdOfferSpec = null
                         }
                     )
                 }
@@ -1231,19 +1271,30 @@ fun CreatorProfileDialog(
                 if (templates.isEmpty()) {
                     Text("No published templates yet.", fontSize = 12.sp, color = Color.Gray, modifier = Modifier.padding(16.dp))
                 } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(4),
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 240.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            .heightIn(max = 240.dp)
+                            .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        items(templates) { template ->
-                            CommunityTemplateItemCard(
-                                template = template,
-                                onUse = { selectedPreviewTemplate = template }
-                            )
+                        templates.chunked(4).forEach { rowTemplates ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                rowTemplates.forEach { template ->
+                                    Box(modifier = Modifier.weight(1f)) {
+                                        CommunityTemplateItemCard(
+                                            template = template,
+                                            onUse = { selectedPreviewTemplate = template }
+                                        )
+                                    }
+                                }
+                                repeat(4 - rowTemplates.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
                         }
                     }
                 }
