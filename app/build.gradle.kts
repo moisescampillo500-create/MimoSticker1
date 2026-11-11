@@ -50,7 +50,6 @@ android {
         }
     }
     androidResources {
-        noCompress += "tflite"
     }
     sourceSets {
         getByName("main") {
@@ -79,15 +78,11 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
-    implementation("com.google.mediapipe:tasks-vision:0.10.14")
     implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta6")
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("androidx.work:work-runtime-ktx:2.12.0")
-
-    implementation("org.tensorflow:tensorflow-lite:2.17.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.5.0")
 
     implementation("com.google.android.gms:play-services-ads:23.6.0")
 

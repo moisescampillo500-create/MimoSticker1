@@ -504,7 +504,6 @@ fun CreateStickerMenu(
     onCreateProject: () -> Unit,
     onMyProjects: () -> Unit,
     onRemoveBackground: () -> Unit,
-    onHeadCutout: () -> Unit = {},
     onEditSticker: () -> Unit,
     onTemplates: () -> Unit,
     onTextSticker: () -> Unit
@@ -565,7 +564,6 @@ fun CreateStickerMenu(
 
         val tools = listOf(
             Triple("✂️ Remove BG", "Cut out subject from photo automatically", onRemoveBackground),
-            Triple("👤 Head Cutout", "Isolate head with sticker outline effect", onHeadCutout),
             Triple("🖼️ Edit Photo", "Open photo in full editor with layers", onEditSticker),
             Triple("🎨 Templates", "Ready-made sticker designs", onTemplates),
             Triple("📝 Text Sticker", "Create custom styled text stickers", onTextSticker)
@@ -593,6 +591,9 @@ fun CreateStickerMenu(
                             Text(subtitle, fontSize = 11.sp, color = Color.DarkGray, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     }
+                }
+                if (rowTools.size == 1) {
+                    Spacer(Modifier.weight(1f))
                 }
             }
             Spacer(Modifier.height(10.dp))

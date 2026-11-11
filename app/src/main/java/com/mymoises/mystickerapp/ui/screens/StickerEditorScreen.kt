@@ -189,6 +189,7 @@ fun StickerEditorScreen(
     var brushSize by remember { mutableFloatStateOf(18f) }
     var brushColorInt by remember { mutableIntStateOf(AndroidColor.RED) }
     var showBrushColorPickerDialog by remember { mutableStateOf(false) }
+    var showCropDialog by remember { mutableStateOf(false) }
 
     var selectedShape by remember { mutableStateOf("Rectangle") }
     var shapeStrokeColorInt by remember { mutableIntStateOf(AndroidColor.BLACK) }
@@ -377,9 +378,10 @@ fun StickerEditorScreen(
         listOf(
             "Camera", "Gallery", "Remove BG", "Auto BG",
             "Outline", "Eraser", "Brush", "Shapes",
-            "Layers", "Text", "Speech Bubbles", "Duplicate",
-            "Rotate 90°", "Flip", "Center", "Reset",
-            "Emoji", "Online BG", "Filters", "Restore"
+            "Layers", "Text", "Speech Bubbles", "Crop Picture",
+            "Duplicate", "Rotate 90°", "Flip", "Center",
+            "Reset", "Emoji", "Online BG", "Filters",
+            "Restore"
         )
     }
 
@@ -399,6 +401,15 @@ fun StickerEditorScreen(
             }
         } else {
             list.addAll(defaultToolOrder)
+        }
+        if (!list.contains("Crop Picture")) {
+            val dupIdx = list.indexOf("Duplicate")
+            if (dupIdx in 0..11) {
+                list[dupIdx] = "Crop Picture"
+                list.add(12.coerceAtMost(list.size), "Duplicate")
+            } else {
+                list.add("Crop Picture")
+            }
         }
         list
     }
@@ -432,6 +443,15 @@ fun StickerEditorScreen(
                 layer.scale = 1f
                 layer.rotation = 0f
                 canvasVersion++
+            },
+            "Crop Picture" to EditorToolSpec("Crop", "📐") {
+                val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+                if (layer == null) {
+                    notice = "Pumili muna ng layer o larawan."
+                    Toast.makeText(context, "Please select an image layer first.", Toast.LENGTH_SHORT).show()
+                    return@EditorToolSpec
+                }
+                showCropDialog = true
             },
             "Duplicate" to EditorToolSpec("Duplicate", "📋") {
                 val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else return@EditorToolSpec
@@ -854,6 +874,24 @@ fun StickerEditorScreen(
                         Toast.makeText(context, "Outline applied to layer!", Toast.LENGTH_SHORT).show()
                     } else notice = "Pumili muna ng layer."
                 },
+                onApplyBrush = {
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+                    if (layer != null) {
+                        snapshot()
+                        canvasVersion++
+                        notice = "Na-apply ang Brush sa canvas!"
+                        Toast.makeText(context, "Brush applied!", Toast.LENGTH_SHORT).show()
+                    } else notice = "Pumili muna ng layer."
+                },
+                onApplyEraser = {
+                    val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+                    if (layer != null) {
+                        snapshot()
+                        canvasVersion++
+                        notice = "Na-apply ang Eraser sa layer!"
+                        Toast.makeText(context, "Eraser applied!", Toast.LENGTH_SHORT).show()
+                    } else notice = "Pumili muna ng layer."
+                },
                 onBrushSizeChange = { brushSize = it },
                 onBrushColorIntChange = { brushColorInt = it },
                 onShowBrushColorPicker = { showBrushColorPickerDialog = true },
@@ -881,6 +919,11 @@ fun StickerEditorScreen(
                     if (activeLayer in 0..layers.lastIndex && layers[activeLayer].isShape) {
                         updateOrCreateShapeLayer(selectedShape, shapeStrokeColorInt, width, isShapeFilled, shapeFillColorInt)
                     }
+                },
+                onApplyShapes = {
+                    updateOrCreateShapeLayer(selectedShape, shapeStrokeColorInt, shapeStrokeWidthPx, isShapeFilled, shapeFillColorInt)
+                    notice = "Na-apply ang hugis $selectedShape sa canvas!"
+                    Toast.makeText(context, "Shape applied to canvas!", Toast.LENGTH_SHORT).show()
                 },
                 onFilterSelected = { filter ->
                     val layer = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
@@ -1478,6 +1521,44 @@ fun StickerEditorScreen(
         )
     }
 
+    if (showCropDialog) {
+        val activeLayerObj = if (activeLayer in 0..layers.lastIndex) layers[activeLayer] else null
+        if (activeLayerObj != null) {
+            StickerCropFullScreen(
+                bitmap = activeLayerObj.bitmap,
+                onCropApplied = { croppedBmp, pLeft, pTop, pWidth, pHeight, sourceW, sourceH ->
+                    snapshot()
+
+                    val oldW = sourceW.toFloat()
+                    val oldH = sourceH.toFloat()
+                    val newW = pWidth.toFloat()
+                    val newH = pHeight.toFloat()
+
+                    val sOld = minOf(1024f / oldW, 1024f / oldH)
+                    val sNew = minOf(1024f / newW, 1024f / newH)
+
+                    val deltaX = (pLeft + newW / 2f) - (oldW / 2f)
+                    val deltaY = (pTop + newH / 2f) - (oldH / 2f)
+
+                    activeLayerObj.offsetX += deltaX * sOld * activeLayerObj.scale
+                    activeLayerObj.offsetY += deltaY * sOld * activeLayerObj.scale
+                    activeLayerObj.scale *= (sOld / sNew)
+
+                    activeLayerObj.bitmap = croppedBmp
+                    activeLayerObj.updateVisibleBounds()
+
+                    canvasVersion++
+                    notice = "Na-crop na ang larawan!"
+                    Toast.makeText(context, "Image cropped successfully!", Toast.LENGTH_SHORT).show()
+                    showCropDialog = false
+                },
+                onCancel = { showCropDialog = false }
+            )
+        } else {
+            showCropDialog = false
+        }
+    }
+
     if (showShapeOutlineColorPickerDialog) {
         BrushCustomColorPickerDialog(
             initialColor = shapeStrokeColorInt,
@@ -1924,6 +2005,8 @@ private fun StickerEditorToolSubPanel(
     onOutlineThicknessChange: (Float) -> Unit,
     onOutlineColorIndexChange: (Int) -> Unit,
     onApplyOutline: () -> Unit,
+    onApplyBrush: () -> Unit,
+    onApplyEraser: () -> Unit,
     onBrushSizeChange: (Float) -> Unit,
     onBrushColorIntChange: (Int) -> Unit,
     onShowBrushColorPicker: () -> Unit,
@@ -1934,6 +2017,7 @@ private fun StickerEditorToolSubPanel(
     onShapeStrokeColorSelected: (Int) -> Unit,
     onShowShapeStrokeColorPicker: () -> Unit,
     onShapeStrokeWidthChange: (Float) -> Unit,
+    onApplyShapes: () -> Unit,
     onFilterSelected: (String) -> Unit,
     onEditSpeechBubble: (StickerEditorLayer) -> Unit
 ) {
@@ -2025,6 +2109,14 @@ private fun StickerEditorToolSubPanel(
                         valueRange = 4f..60f,
                         modifier = Modifier.weight(1f)
                     )
+                    Spacer(Modifier.width(6.dp))
+                    Button(
+                        onClick = onApplyEraser,
+                        colors = ButtonDefaults.buttonColors(containerColor = editorRed),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text("Apply", fontSize = 11.sp)
+                    }
                 }
             }
 
@@ -2045,6 +2137,14 @@ private fun StickerEditorToolSubPanel(
                             valueRange = 4f..60f,
                             modifier = Modifier.weight(1f)
                         )
+                        Spacer(Modifier.width(6.dp))
+                        Button(
+                            onClick = onApplyBrush,
+                            colors = ButtonDefaults.buttonColors(containerColor = editorRed),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text("Apply", fontSize = 11.sp)
+                        }
                     }
 
                     Row(
@@ -2227,6 +2327,14 @@ private fun StickerEditorToolSubPanel(
                             valueRange = 2f..48f,
                             modifier = Modifier.weight(1f)
                         )
+                        Spacer(Modifier.width(6.dp))
+                        Button(
+                            onClick = onApplyShapes,
+                            colors = ButtonDefaults.buttonColors(containerColor = editorRed),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text("Apply", fontSize = 11.sp)
+                        }
                     }
                 }
             }

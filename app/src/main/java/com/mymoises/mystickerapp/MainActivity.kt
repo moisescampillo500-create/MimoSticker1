@@ -77,7 +77,6 @@ import com.mymoises.mystickerapp.ui.screens.AccountScreen
 import com.mymoises.mystickerapp.ui.screens.CreateStickerMenu
 import com.mymoises.mystickerapp.ui.screens.CreateStickerScreen
 import com.mymoises.mystickerapp.ui.screens.CreatorsScreen
-import com.mymoises.mystickerapp.ui.screens.HeadCutoutScreen
 import com.mymoises.mystickerapp.ui.screens.MyHomeScreen
 import com.mymoises.mystickerapp.ui.screens.MyProjectsScreen
 import com.mymoises.mystickerapp.ui.screens.MyScreen
@@ -693,7 +692,6 @@ fun MyStickerApp() {
                             onCreateProject = { selectedScreen = "My Sticker" },
                             onMyProjects = { selectedScreen = "My Projects" },
                             onRemoveBackground = { selectedScreen = "Remove Background" },
-                            onHeadCutout = { selectedScreen = "Head Cutout" },
                             onEditSticker = { selectedScreen = "My Sticker" },
                             onTemplates = { selectedScreen = "Templates" },
                             onTextSticker = { selectedScreen = "AI Text-to-Sticker" }
@@ -800,22 +798,6 @@ fun MyStickerApp() {
                         )
                     }
 
-                    "Head Cutout" -> {
-                        HeadCutoutScreen(
-                            autoSave = autoSave,
-                            onStickerSaved = { stickerRefresh++ },
-                            onOpenInEditor = { headStickerBitmap ->
-                                val savedFile = saveTempCutoutSticker(context, headStickerBitmap)
-                                if (savedFile != null) {
-                                    selectedStickerToEdit = savedFile
-                                    selectedScreen = "EditSavedSticker"
-                                } else {
-                                    selectedScreen = "My Sticker"
-                                }
-                            },
-                            onBack = { selectedScreen = "Create" }
-                        )
-                    }
 
                     "Pixel Art" -> {
                         Text("🟪 Pixel Art", fontSize = 26.sp)

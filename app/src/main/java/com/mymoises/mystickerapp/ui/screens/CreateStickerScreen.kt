@@ -34,6 +34,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -124,32 +125,49 @@ fun CreateStickerScreen(
             .padding(bottom = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            if (screenTitle == "AI Picture-to-Sticker") {
-                "🤖 AI Picture-to-Sticker"
-            } else {
-                "🎨 Create Sticker"
-            },
-            fontSize = 26.sp
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AppButton(
+                text = "← Back",
+                onClick = onBack,
+                modifier = Modifier
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                if (screenTitle == "AI Picture-to-Sticker") "🤖 AI Picture-to-Sticker" else "🎨 Create Sticker",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
 
         Text(
             "Choose a picture, preview it, and save it as PNG.",
-            fontSize = 14.sp
+            fontSize = 12.sp,
+            color = Color.Gray,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(16.dp))
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(280.dp)
-                .background(Color(0xFFF2F2F2))
-                .border(1.dp, Color.LightGray),
+                .background(Color(0xFF131722), RoundedCornerShape(16.dp))
+                .border(1.dp, Color.Gray.copy(0.3f), RoundedCornerShape(16.dp)),
             contentAlignment = Alignment.Center
         ) {
+            Checkerboard(Modifier.matchParentSize())
+
             val bitmap = selectedBitmap
 
             if (bitmap != null) {
@@ -163,7 +181,8 @@ fun CreateStickerScreen(
             } else {
                 Text(
                     "🖼️\n\nYour picture preview will appear here",
-                    color = Color.DarkGray
+                    color = Color.LightGray,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
         }
@@ -174,9 +193,13 @@ fun CreateStickerScreen(
             onClick = {
                 galleryLauncher.launch("image/*")
             },
-            modifier = Modifier.fillMaxWidth()
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744)),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
         ) {
-            Text("🖼️ Choose Picture from Gallery")
+            Text("🖼️ Select Photo from Gallery", fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
 
         Spacer(Modifier.height(10.dp))

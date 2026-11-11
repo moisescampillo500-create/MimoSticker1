@@ -11,13 +11,12 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun AppButton(
     text: String,
+    modifier: Modifier = Modifier.fillMaxWidth(),
     onClick: () -> Unit
 ) {
     Button(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp)
+        modifier = modifier.padding(vertical = 6.dp)
     ) {
         Text(text)
     }
