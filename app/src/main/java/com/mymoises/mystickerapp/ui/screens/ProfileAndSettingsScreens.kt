@@ -1386,6 +1386,7 @@ fun SettingsScreen(
     onDarkModeChange: (Boolean) -> Unit,
     notifications: Boolean,
     onNotificationsChange: (Boolean) -> Unit,
+    onPrivacyPolicyClick: () -> Unit = {},
     onLogoutClick: () -> Unit,
     onAboutClick: () -> Unit
 ) {
@@ -1399,6 +1400,7 @@ fun SettingsScreen(
         SettingRow("Connect", onClick = onConnectClick)
         SettingSwitchRow("Dark Mode", checked = darkMode, onCheckedChange = onDarkModeChange)
         SettingSwitchRow("Push Notifications", checked = notifications, onCheckedChange = onNotificationsChange)
+        SettingRow("🔒 Privacy Policy", onClick = onPrivacyPolicyClick)
         SettingRow("Logout", onClick = onLogoutClick)
         SettingRow("About MyStickerApp", onClick = onAboutClick)
     }

@@ -2,7 +2,9 @@ package com.mymoises.mystickerapp
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -1171,6 +1173,15 @@ fun MyStickerApp() {
                                     .putBoolean("notifications", it)
                                     .apply()
                             },
+                            onPrivacyPolicyClick = {
+                                val privacyUrl = "https://mymoises.github.io/mystickerapp/PRIVACY_POLICY.html"
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(privacyUrl))
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {
+                                    Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
+                                }
+                            },
                             onLogoutClick = {
                                 selectedScreen = "Logged Out"
                             },
@@ -1304,6 +1315,18 @@ fun MyStickerApp() {
                             )
 
                             Spacer(Modifier.height(20.dp))
+
+                            AppButton("🔒 View Privacy Policy") {
+                                val privacyUrl = "https://mymoises.github.io/mystickerapp/PRIVACY_POLICY.html"
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(privacyUrl))
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {
+                                    Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+
+                            Spacer(Modifier.height(12.dp))
 
                             AppButton("← Back to Settings") {
                                 selectedScreen = "Settings"
