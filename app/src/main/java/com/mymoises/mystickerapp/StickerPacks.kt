@@ -25,7 +25,7 @@ data class StickerPack(
 
 fun getStickerPacks(context: Context): List<StickerPack> {
     val prefs = context.getSharedPreferences("sticker_packs_pref", Context.MODE_PRIVATE)
-    val packSet = prefs.getStringSet("packs_list", setOf("Pack 1", "Pack 2", "Pack 3")) ?: setOf("Pack 1", "Pack 2", "Pack 3")
+    val packSet = prefs.getStringSet("packs_list", emptySet()) ?: emptySet()
     return packSet.sorted().map { name ->
         val stickers = prefs.getStringSet("pack_stickers_$name", emptySet())?.toList() ?: emptyList()
         StickerPack(id = name, name = name, stickerNames = stickers)
@@ -34,7 +34,7 @@ fun getStickerPacks(context: Context): List<StickerPack> {
 
 fun createStickerPack(context: Context, packName: String): StickerPack {
     val prefs = context.getSharedPreferences("sticker_packs_pref", Context.MODE_PRIVATE)
-    val currentSet = prefs.getStringSet("packs_list", setOf("Pack 1", "Pack 2", "Pack 3"))?.toMutableSet() ?: mutableSetOf("Pack 1", "Pack 2", "Pack 3")
+    val currentSet = prefs.getStringSet("packs_list", emptySet())?.toMutableSet() ?: mutableSetOf()
     currentSet.add(packName)
     prefs.edit().putStringSet("packs_list", currentSet).apply()
     val stickers = prefs.getStringSet("pack_stickers_$packName", emptySet())?.toList() ?: emptyList()

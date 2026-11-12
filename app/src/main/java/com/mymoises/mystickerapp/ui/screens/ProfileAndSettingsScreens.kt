@@ -101,10 +101,7 @@ data class UserCollectionItem(
 fun loadUserCollections(prefs: SharedPreferences): List<UserCollectionItem> {
     val jsonStr = prefs.getString("user_collections_json", null)
     if (jsonStr.isNullOrBlank()) {
-        return listOf(
-            UserCollectionItem("col_1", "Favorite Memes", emptyList()),
-            UserCollectionItem("col_2", "Custom Bubbles", emptyList())
-        )
+        return emptyList()
     }
     return try {
         val array = JSONArray(jsonStr)
@@ -128,10 +125,7 @@ fun loadUserCollections(prefs: SharedPreferences): List<UserCollectionItem> {
         }
         list
     } catch (e: Exception) {
-        listOf(
-            UserCollectionItem("col_1", "Favorite Memes", emptyList()),
-            UserCollectionItem("col_2", "Custom Bubbles", emptyList())
-        )
+        emptyList()
     }
 }
 
@@ -223,7 +217,7 @@ fun CreatorsScreen(
     var selectedCreatorName by remember { mutableStateOf<String?>(null) }
 
     var followedIds by remember {
-        mutableStateOf(prefs.getStringSet("followed_creators", setOf("creator_memeking")) ?: setOf("creator_memeking"))
+        mutableStateOf(prefs.getStringSet("followed_creators", emptySet()) ?: emptySet())
     }
 
     val realCreators = remember {
@@ -397,9 +391,9 @@ fun MyScreen(
     val myStickersFiles = remember(refreshTrigger) { loadMyStickerFiles(context) }
     val myStickersCount = myStickersFiles.size
 
-    val followedIds = remember(refreshTrigger) { prefs.getStringSet("followed_creators", setOf("creator_memeking")) ?: setOf("creator_memeking") }
+    val followedIds = remember(refreshTrigger) { prefs.getStringSet("followed_creators", emptySet()) ?: emptySet() }
     val followingCount = followedIds.size
-    val followersCount = remember(refreshTrigger) { prefs.getInt("user_followers_count", 128) }
+    val followersCount = remember(refreshTrigger) { prefs.getInt("user_followers_count", 0) }
 
     val favoriteSet = remember(refreshTrigger) { prefs.getStringSet("favorite_stickers", emptySet()) ?: emptySet() }
     val favoriteCount = favoriteSet.size
@@ -841,7 +835,7 @@ fun MyScreen(
 
     // FOLLOWING DIALOG
     if (showFollowingDialog) {
-        var followedSet by remember { mutableStateOf(prefs.getStringSet("followed_creators", setOf("creator_memeking")) ?: setOf("creator_memeking")) }
+        var followedSet by remember { mutableStateOf(prefs.getStringSet("followed_creators", emptySet()) ?: emptySet()) }
         val topCreators = remember { UserStickerTemplatesManager.getTopCreators(context) }
         val followedCreators = remember(followedSet, topCreators) {
             topCreators.filter { followedSet.contains(it.id) }

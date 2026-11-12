@@ -1,5 +1,6 @@
 package com.mymoises.mystickerapp.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -15,8 +16,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -26,6 +29,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -61,6 +65,8 @@ fun MyProjectsScreen(
     var refreshKey by remember { mutableIntStateOf(0) }
     var selectedTab by remember { mutableIntStateOf(0) }
     var previewProjectTarget by remember { mutableStateOf<UserStickerTemplate?>(null) }
+    var deleteProjectTarget by remember { mutableStateOf<UserStickerTemplate?>(null) }
+    var showDeleteAllConfirmDialog by remember { mutableStateOf(false) }
 
     val userTemplates = remember(refreshKey) {
         UserStickerTemplatesManager.getMyTemplates(context)
@@ -132,6 +138,22 @@ fun MyProjectsScreen(
                     }
                 }
             } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("Saved Editable Projects", fontSize = 12.sp, color = Color.Gray)
+                    TextButton(
+                        onClick = { showDeleteAllConfirmDialog = true },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) {
+                        Text("🗑️ Delete All", fontSize = 12.sp, color = Color.Red, fontWeight = FontWeight.Bold)
+                    }
+                }
+
                 userTemplates.chunked(2).forEach { rowItems ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -177,14 +199,26 @@ fun MyProjectsScreen(
                                         Spacer(Modifier.height(2.dp))
                                         Text("${template.layers.size} Layers", fontSize = 11.sp, color = Color.Gray)
                                         Spacer(Modifier.height(8.dp))
-                                        Button(
-                                            onClick = { previewProjectTarget = template },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744)),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            shape = RoundedCornerShape(8.dp),
-                                            modifier = Modifier.fillMaxWidth()
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text("👁️ Preview Project", fontSize = 11.sp)
+                                            Button(
+                                                onClick = { previewProjectTarget = template },
+                                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744)),
+                                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text("👁️ Preview", fontSize = 11.sp)
+                                            }
+                                            IconButton(
+                                                onClick = { deleteProjectTarget = template },
+                                                modifier = Modifier.size(32.dp)
+                                            ) {
+                                                Text("🗑️", fontSize = 14.sp)
+                                            }
                                         }
                                     }
                                 }
@@ -276,6 +310,67 @@ fun MyProjectsScreen(
             onUseTemplate = { selected ->
                 previewProjectTarget = null
                 onContinueEditTemplate(selected)
+            }
+        )
+    }
+
+    deleteProjectTarget?.let { template ->
+        AlertDialog(
+            onDismissRequest = { deleteProjectTarget = null },
+            title = { Text("Delete Editable Project?") },
+            text = { Text("Are you sure you want to delete '${template.name}'? This project will be permanently removed.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val targetId = template.id
+                        deleteProjectTarget = null
+                        val success = UserStickerTemplatesManager.deleteUserTemplate(context, targetId)
+                        refreshKey++
+                        Toast.makeText(
+                            context,
+                            if (success) "Project deleted." else "Could not delete project.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Text("Delete", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteProjectTarget = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showDeleteAllConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAllConfirmDialog = false },
+            title = { Text("Delete All Editable Projects?") },
+            text = { Text("Are you sure you want to delete ALL saved editable projects? This action cannot be undone.\n\nExported images and saved stickers in other sections will not be deleted.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteAllConfirmDialog = false
+                        val success = UserStickerTemplatesManager.deleteAllMyTemplates(context)
+                        refreshKey++
+                        Toast.makeText(
+                            context,
+                            if (success) "All editable projects deleted." else "No projects to delete.",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Text("Delete All", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAllConfirmDialog = false }) {
+                    Text("Cancel")
+                }
             }
         )
     }
